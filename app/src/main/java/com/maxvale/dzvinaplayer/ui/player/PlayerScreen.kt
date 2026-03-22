@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -68,6 +69,12 @@ fun PlayerScreen(
     }
 
     DisposableEffect(Unit) {
+        val window = activity?.window
+        val insetsController = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, it.decorView) }
+        
+        insetsController?.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        insetsController?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+
         val listener = object : Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) {
                 isPlaying = playing
@@ -80,6 +87,7 @@ fun PlayerScreen(
         }
         viewModel.player.addListener(listener)
         onDispose {
+            insetsController?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
             viewModel.saveRecent()
             viewModel.player.removeListener(listener)
             viewModel.player.stop()
@@ -381,11 +389,28 @@ fun TrackSelectionDialog(
     onDismiss: () -> Unit,
     onPickExternal: () -> Unit
 ) {
+    var offsetMs by remember { mutableStateOf(if (trackType == C.TRACK_TYPE_AUDIO) viewModel.audioOffsetMs else viewModel.subtitleOffsetMs) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            Column {
+            Column(modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+                Text("Delay / Offset: ${offsetMs} ms", style = MaterialTheme.typography.bodyMedium)
+                androidx.compose.material3.Slider(
+                    value = offsetMs.toFloat(),
+                    onValueChange = { offsetMs = it.toLong() },
+                    valueRange = -10000f..10000f,
+                    steps = 19,
+                    onValueChangeFinished = {
+                        if (trackType == C.TRACK_TYPE_AUDIO) {
+                            viewModel.setAudioOffset(offsetMs)
+                        } else {
+                            viewModel.setSubtitleOffset(offsetMs)
+                        }
+                    }
+                )
+                Spacer(modifier = Modifier.height(16.dp))
                 val trackGroups = viewModel.player.currentTracks.groups.filter { it.type == trackType }
                 if (trackGroups.isEmpty()) {
                     Text("No tracks found.")
@@ -394,7 +419,16 @@ fun TrackSelectionDialog(
                         for (i in 0 until group.length) {
                             val format = group.getTrackFormat(i)
                             val isSelected = group.isTrackSelected(i)
-                            val label = format.language ?: "Track ${i + 1}"
+                            val langCode = format.language
+                            val labelName = format.label
+                            var label = if (langCode != null) {
+                                java.util.Locale(langCode).displayLanguage.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString() }
+                            } else {
+                                "Track ${i + 1}"
+                            }
+                            if (!labelName.isNullOrEmpty()) {
+                                label += " ($labelName)"
+                            }
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
@@ -402,7 +436,7 @@ fun TrackSelectionDialog(
                                     .clickable {
                                         viewModel.player.trackSelectionParameters = viewModel.player.trackSelectionParameters
                                             .buildUpon()
-                                            .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, i))
+                                            .setOverrideForType(androidx.media3.common.TrackSelectionOverride(group.mediaTrackGroup, i))
                                             .build()
                                         onDismiss()
                                     }

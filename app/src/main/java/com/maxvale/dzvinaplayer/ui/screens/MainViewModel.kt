@@ -16,7 +16,7 @@ import java.io.File
 import android.os.Environment
 
 enum class BrowseScope {
-    HOME, LOCAL, FTP_ROOT, FTP_BROWSE, DLNA, DLNA_BROWSE
+    HOME, LOCAL, FTP_ROOT, FTP_BROWSE
 }
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -118,6 +118,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun ftpGoUp() {
         viewModelScope.launch {
+            if (_ftpCurrentPath.value == "/") {
+                ftpManager.disconnect()
+                setBrowseScope(BrowseScope.FTP_ROOT)
+                return@launch
+            }
             val success = ftpManager.changeDirUp()
             if (success) {
                 _ftpFiles.value = ftpManager.listFiles("")
@@ -129,52 +134,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    val dlnaManager = com.maxvale.dzvinaplayer.network.DlnaManager()
-
-    private val _dlnaServers = MutableStateFlow<List<com.maxvale.dzvinaplayer.network.DlnaServer>>(emptyList())
-    val dlnaServers = _dlnaServers.asStateFlow()
-
-    private val _dlnaItems = MutableStateFlow<List<com.maxvale.dzvinaplayer.network.DlnaItem>>(emptyList())
-    val dlnaItems = _dlnaItems.asStateFlow()
-    
-    val dlnaPathStack = java.util.Stack<String>()
-    var currentDlnaControlUrl: String = ""
-
-    fun discoverDlnaServers() {
-        viewModelScope.launch {
-            _dlnaServers.value = dlnaManager.discoverServers()
-        }
-    }
-
-    fun browseDlnaServer(server: com.maxvale.dzvinaplayer.network.DlnaServer) {
-        currentDlnaControlUrl = server.controlUrl
-        dlnaPathStack.clear()
-        dlnaPathStack.push("0")
-        viewModelScope.launch {
-            _dlnaItems.value = dlnaManager.browse(server.controlUrl, "0")
-            setBrowseScope(BrowseScope.DLNA_BROWSE)
-        }
-    }
-
-    fun browseDlnaFolder(folderId: String) {
-        dlnaPathStack.push(folderId)
-        viewModelScope.launch {
-            _dlnaItems.value = dlnaManager.browse(currentDlnaControlUrl, folderId)
-        }
-    }
-
-    fun dlnaGoUp() {
-        if (dlnaPathStack.size > 1) {
-            dlnaPathStack.pop()
-            val parentId = dlnaPathStack.peek()
-            viewModelScope.launch {
-                _dlnaItems.value = dlnaManager.browse(currentDlnaControlUrl, parentId)
-            }
-        } else {
-            setBrowseScope(BrowseScope.DLNA)
-        }
-    }
-    
     fun removeRecent(recentVideo: RecentVideo) {
         viewModelScope.launch {
             recentVideoDao.deleteRecent(recentVideo)

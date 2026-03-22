@@ -1,6 +1,7 @@
 package com.maxvale.dzvinaplayer.ui.screens
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -84,8 +85,16 @@ fun BottomNavigationBar(navController: NavHostController) {
     val currentRoute = navBackStackEntry?.destination?.route
 
     NavigationBar(
-        containerColor = SurfaceDark,
-        tonalElevation = 8.dp
+        containerColor = androidx.compose.ui.graphics.Color.Transparent,
+        modifier = Modifier.background(
+            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                colors = listOf(
+                    SurfaceDark,
+                    PrimaryDarkRed.copy(alpha = 0.5f)
+                )
+            )
+        ),
+        tonalElevation = 0.dp
     ) {
         bottomNavigationItems.forEach { screen ->
             NavigationBarItem(

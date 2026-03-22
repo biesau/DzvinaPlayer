@@ -14,9 +14,25 @@ import kotlinx.coroutines.launch
 class PlayerViewModel(application: Application) : AndroidViewModel(application) {
     val player = ExoPlayer.Builder(application)
         .setMediaSourceFactory(androidx.media3.exoplayer.source.DefaultMediaSourceFactory(application).setDataSourceFactory(com.maxvale.dzvinaplayer.network.CustomDataSourceFactory(application)))
+        .setRenderersFactory(androidx.media3.exoplayer.DefaultRenderersFactory(application).setExtensionRendererMode(androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER))
         .build()
     private val recentDao = AppDatabase.getDatabase(application).recentVideoDao()
     var currentPath: String? = null
+
+    var audioOffsetMs: Long = 0
+        private set
+    var subtitleOffsetMs: Long = 0
+        private set
+
+    fun setAudioOffset(offset: Long) {
+        audioOffsetMs = offset
+        // In a real scenario, this requires a customized DefaultAudioSink config.
+    }
+
+    fun setSubtitleOffset(offset: Long) {
+        subtitleOffsetMs = offset
+        // This requires a customized TextRenderer config.
+    }
 
     fun playFile(path: String) {
         currentPath = path
