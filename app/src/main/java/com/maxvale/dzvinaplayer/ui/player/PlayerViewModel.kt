@@ -10,8 +10,11 @@ import com.maxvale.dzvinaplayer.data.AppDatabase
 import com.maxvale.dzvinaplayer.data.RecentVideo
 import kotlinx.coroutines.launch
 
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class PlayerViewModel(application: Application) : AndroidViewModel(application) {
-    val player = ExoPlayer.Builder(application).build()
+    val player = ExoPlayer.Builder(application)
+        .setMediaSourceFactory(androidx.media3.exoplayer.source.DefaultMediaSourceFactory(application).setDataSourceFactory(com.maxvale.dzvinaplayer.network.CustomDataSourceFactory(application)))
+        .build()
     private val recentDao = AppDatabase.getDatabase(application).recentVideoDao()
     var currentPath: String? = null
 

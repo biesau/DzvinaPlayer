@@ -74,6 +74,9 @@ dependencies {
     // DocumentFile
     implementation(libs.androidx.documentfile)
 
+    // Apache Commons Net for FTP
+    implementation(libs.commons.net)
+
     // Media3
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.exoplayer.dash)

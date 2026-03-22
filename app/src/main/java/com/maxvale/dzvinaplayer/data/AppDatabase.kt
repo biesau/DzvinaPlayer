@@ -5,10 +5,11 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [FavoriteLocation::class, RecentVideo::class], version = 1, exportSchema = false)
+@Database(entities = [FavoriteLocation::class, RecentVideo::class, FtpServer::class], version = 2, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun favoriteDao(): FavoriteDao
     abstract fun recentVideoDao(): RecentVideoDao
+    abstract fun ftpServerDao(): FtpServerDao
 
     companion object {
         @Volatile
@@ -20,7 +21,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "dzvinaplayer_database"
-                ).build()
+                ).fallbackToDestructiveMigration().build()
                 INSTANCE = instance
                 instance
             }

@@ -58,3 +58,25 @@ interface RecentVideoDao {
     @Delete
     suspend fun deleteRecent(recentVideo: RecentVideo)
 }
+
+@Entity(tableName = "ftp_servers")
+data class FtpServer(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val name: String,
+    val host: String,
+    val port: Int = 21,
+    val user: String = "anonymous",
+    val pass: String = ""
+)
+
+@Dao
+interface FtpServerDao {
+    @Query("SELECT * FROM ftp_servers")
+    fun getAllServers(): Flow<List<FtpServer>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertServer(server: FtpServer)
+
+    @Delete
+    suspend fun deleteServer(server: FtpServer)
+}

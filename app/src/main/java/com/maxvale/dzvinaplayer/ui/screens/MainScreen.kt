@@ -31,8 +31,15 @@ fun MainScreen(viewModel: MainViewModel) {
     val navController = rememberNavController()
     viewModel.navController = navController
 
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
     Scaffold(
-        bottomBar = { BottomNavigationBar(navController = navController) }
+        bottomBar = {
+            if (currentRoute?.startsWith("player") != true) {
+                BottomNavigationBar(navController = navController)
+            }
+        }
     ) { innerPadding ->
         NavHost(
             navController = navController,
