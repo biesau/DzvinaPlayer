@@ -1,2 +1,2 @@
 # DzvinaPlayer
-DźvinaPlayer - app for playing videos with separate audoi and subtitle tracks.
+DźvinaPlayer - an application for playing videos with separate audio and subtitle tracks.
