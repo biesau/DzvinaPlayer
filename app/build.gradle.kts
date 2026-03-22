@@ -38,10 +38,10 @@ android {
         jvmTarget = "11"
     }
     buildFeatures {
-        compose = false
+        compose = true
     }
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.9"
+        kotlinCompilerExtensionVersion = "1.5.11"
     }
     packaging {
         resources {
@@ -64,24 +64,27 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
 
     // Room
-    // implementation(libs.androidx.room.runtime)
-    // implementation(libs.androidx.room.ktx)
-    // ksp(libs.androidx.room.compiler)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
 
     // DataStore
-    // implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.datastore.preferences)
     
     // DocumentFile
-    // implementation(libs.androidx.documentfile)
+    implementation(libs.androidx.documentfile)
 
     // Media3
-    // implementation(libs.androidx.media3.exoplayer)
-    // implementation(libs.androidx.media3.exoplayer.dash)
-    // implementation(libs.androidx.media3.exoplayer.hls)
-    // implementation(libs.androidx.media3.ui)
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.exoplayer.dash)
+    implementation(libs.androidx.media3.exoplayer.hls)
+    implementation(libs.androidx.media3.ui)
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
+
+    // Legacy material for themes
+    implementation(libs.material)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

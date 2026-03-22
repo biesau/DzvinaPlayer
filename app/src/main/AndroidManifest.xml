@@ -16,7 +16,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.DźvinaPlayer">
         <activity
-            android:name=".MainActivity"
+            android:name="com.maxvale.dzvinaplayer.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.DźvinaPlayer">
             <intent-filter>

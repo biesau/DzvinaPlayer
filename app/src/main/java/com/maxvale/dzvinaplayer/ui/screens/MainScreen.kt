@@ -48,6 +48,9 @@ fun MainScreen(viewModel: MainViewModel) {
             composable(Screen.Recent.route) {
                 RecentScreen(viewModel = viewModel)
             }
+            composable(Screen.About.route) {
+                AboutScreen(onNavigateBack = { navController.popBackStack() })
+            }
             composable(
                 route = Screen.Player.route,
                 arguments = listOf(androidx.navigation.navArgument("videoPath") { 

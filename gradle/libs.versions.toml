@@ -1,6 +1,6 @@
 [versions]
-agp = "8.2.2"
-kotlin = "1.9.22"
+agp = "8.13.2"
+kotlin = "1.9.23"
 coreKtx = "1.12.0"
 junit = "4.13.2"
 junitVersion = "1.1.5"
@@ -12,11 +12,9 @@ activityCompose = "1.8.2"
 navigationCompose = "2.7.7"
 media3 = "1.1.1"
 room = "2.6.1"
-ksp = "1.9.22-1.0.17"
+ksp = "1.9.23-1.0.19"
 datastore = "1.0.0"
 firebaseBom = "32.7.2"
-googleServices = "4.4.1"
-firebaseCrashlyticsPlugin = "2.9.9"
 coroutine = "1.7.3"
 lifecycleRuntime = "2.7.0"
 documentfile = "1.0.1"
@@ -62,7 +60,6 @@ material = { group = "com.google.android.material", name = "material", version.r
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
-google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
-firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebaseCrashlyticsPlugin" }
 

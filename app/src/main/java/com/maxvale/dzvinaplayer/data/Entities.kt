@@ -49,6 +49,9 @@ interface RecentVideoDao {
     @Query("SELECT * FROM recent_videos ORDER BY lastWatchedAt DESC")
     fun getAllRecents(): Flow<List<RecentVideo>>
 
+    @Query("SELECT * FROM recent_videos WHERE path = :path LIMIT 1")
+    suspend fun getRecent(path: String): RecentVideo?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRecent(recentVideo: RecentVideo)
 

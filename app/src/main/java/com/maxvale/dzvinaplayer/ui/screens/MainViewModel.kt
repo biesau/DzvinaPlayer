@@ -7,9 +7,13 @@ import androidx.navigation.NavController
 import com.maxvale.dzvinaplayer.data.AppDatabase
 import com.maxvale.dzvinaplayer.data.FavoriteLocation
 import com.maxvale.dzvinaplayer.data.RecentVideo
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.File
+import android.os.Environment
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val database =AppDatabase.getDatabase(application)
@@ -17,6 +21,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val recentVideoDao = database.recentVideoDao()
 
     var navController: NavController? = null
+
+    private val _currentDir = MutableStateFlow(Environment.getExternalStorageDirectory())
+    val currentDir = _currentDir.asStateFlow()
+
+    fun setCurrentDir(file: File) {
+        _currentDir.value = file
+    }
 
     val favorites = favoriteDao.getAllFavorites().stateIn(
         scope = viewModelScope,
