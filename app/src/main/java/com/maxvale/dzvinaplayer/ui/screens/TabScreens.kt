@@ -99,6 +99,14 @@ fun LocalFilesScreen(viewModel: MainViewModel) {
             if (selectionMode) {
                 TopAppBar(
                     title = { Text("${selectedFiles.size} selected") },
+                    modifier = Modifier.background(
+                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                            colors = listOf(
+                                com.maxvale.dzvinaplayer.ui.theme.SurfaceDark,
+                                com.maxvale.dzvinaplayer.ui.theme.PrimaryDarkRed.copy(alpha = 0.5f)
+                            )
+                        )
+                    ),
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.secondary,
                         titleContentColor = MaterialTheme.colorScheme.onSecondary,
@@ -137,8 +145,16 @@ fun LocalFilesScreen(viewModel: MainViewModel) {
             } else {
                 TopAppBar(
                     title = { Text(currentDir.name.ifEmpty { "Internal Storage" }) },
+                    modifier = Modifier.background(
+                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                            colors = listOf(
+                                com.maxvale.dzvinaplayer.ui.theme.SurfaceDark,
+                                com.maxvale.dzvinaplayer.ui.theme.PrimaryDarkRed.copy(alpha = 0.5f)
+                            )
+                        )
+                    ),
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
+                        containerColor = androidx.compose.ui.graphics.Color.Transparent,
                         titleContentColor = MaterialTheme.colorScheme.onPrimary
                     ),
                     navigationIcon = {
@@ -315,8 +331,16 @@ fun SourcesHomeScreen(viewModel: MainViewModel) {
         topBar = {
             TopAppBar(
                 title = { Text("Sources") },
+                modifier = Modifier.background(
+                    brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                        colors = listOf(
+                            com.maxvale.dzvinaplayer.ui.theme.SurfaceDark,
+                            com.maxvale.dzvinaplayer.ui.theme.PrimaryDarkRed.copy(alpha = 0.5f)
+                        )
+                    )
+                ),
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
+                    containerColor = androidx.compose.ui.graphics.Color.Transparent,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary
                 ),
                 actions = {
@@ -406,6 +430,14 @@ fun FavoritesScreen(viewModel: MainViewModel) {
             if (selectionMode) {
                 TopAppBar(
                     title = { Text("${selectedFavorites.size} selected") },
+                    modifier = Modifier.background(
+                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                            colors = listOf(
+                                com.maxvale.dzvinaplayer.ui.theme.SurfaceDark,
+                                com.maxvale.dzvinaplayer.ui.theme.PrimaryDarkRed.copy(alpha = 0.5f)
+                            )
+                        )
+                    ),
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.secondary,
                         titleContentColor = MaterialTheme.colorScheme.onSecondary,
@@ -433,8 +465,16 @@ fun FavoritesScreen(viewModel: MainViewModel) {
             } else {
                 TopAppBar(
                     title = { Text("Favorites") },
+                    modifier = Modifier.background(
+                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                            colors = listOf(
+                                com.maxvale.dzvinaplayer.ui.theme.SurfaceDark,
+                                com.maxvale.dzvinaplayer.ui.theme.PrimaryDarkRed.copy(alpha = 0.5f)
+                            )
+                        )
+                    ),
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
+                        containerColor = androidx.compose.ui.graphics.Color.Transparent,
                         titleContentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 )
@@ -519,6 +559,14 @@ fun RecentScreen(viewModel: MainViewModel) {
             if (selectionMode) {
                 TopAppBar(
                     title = { Text("${selectedRecents.size} selected") },
+                    modifier = Modifier.background(
+                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                            colors = listOf(
+                                com.maxvale.dzvinaplayer.ui.theme.SurfaceDark,
+                                com.maxvale.dzvinaplayer.ui.theme.PrimaryDarkRed.copy(alpha = 0.5f)
+                            )
+                        )
+                    ),
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.secondary,
                         titleContentColor = MaterialTheme.colorScheme.onSecondary,
@@ -546,8 +594,16 @@ fun RecentScreen(viewModel: MainViewModel) {
             } else {
                 TopAppBar(
                     title = { Text("Recent Watched") },
+                    modifier = Modifier.background(
+                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                            colors = listOf(
+                                com.maxvale.dzvinaplayer.ui.theme.SurfaceDark,
+                                com.maxvale.dzvinaplayer.ui.theme.PrimaryDarkRed.copy(alpha = 0.5f)
+                            )
+                        )
+                    ),
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
+                        containerColor = androidx.compose.ui.graphics.Color.Transparent,
                         titleContentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 )
@@ -622,8 +678,16 @@ fun FtpServersScreen(viewModel: MainViewModel) {
         topBar = {
             TopAppBar(
                 title = { Text("FTP Servers") },
+                modifier = Modifier.background(
+                    brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                        colors = listOf(
+                            com.maxvale.dzvinaplayer.ui.theme.SurfaceDark,
+                            com.maxvale.dzvinaplayer.ui.theme.PrimaryDarkRed.copy(alpha = 0.5f)
+                        )
+                    )
+                ),
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
+                    containerColor = androidx.compose.ui.graphics.Color.Transparent,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary
                 ),
                 navigationIcon = {
@@ -711,8 +775,16 @@ fun FtpBrowseScreen(viewModel: MainViewModel) {
         topBar = {
             TopAppBar(
                 title = { Text(if (currentPath == "/") "FTP Server" else currentPath.substringAfterLast('/')) },
+                modifier = Modifier.background(
+                    brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                        colors = listOf(
+                            com.maxvale.dzvinaplayer.ui.theme.SurfaceDark,
+                            com.maxvale.dzvinaplayer.ui.theme.PrimaryDarkRed.copy(alpha = 0.5f)
+                        )
+                    )
+                ),
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
+                    containerColor = androidx.compose.ui.graphics.Color.Transparent,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary
                 ),
                 navigationIcon = {
@@ -759,8 +831,16 @@ fun AboutScreen(onNavigateBack: () -> Unit) {
         topBar = {
             TopAppBar(
                 title = { Text("About") },
+                modifier = Modifier.background(
+                    brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                        colors = listOf(
+                            com.maxvale.dzvinaplayer.ui.theme.SurfaceDark,
+                            com.maxvale.dzvinaplayer.ui.theme.PrimaryDarkRed.copy(alpha = 0.5f)
+                        )
+                    )
+                ),
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
+                    containerColor = androidx.compose.ui.graphics.Color.Transparent,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary
                 ),
                 navigationIcon = {

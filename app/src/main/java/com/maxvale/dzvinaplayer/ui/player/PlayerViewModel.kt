@@ -34,17 +34,60 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         // This requires a customized TextRenderer config.
     }
 
+    var externalAudioUri: Uri? = null
+    var externalAudioFileName: String? = null
+    var currentSubtitleConfigurations: List<MediaItem.SubtitleConfiguration>? = null
+
     fun playFile(path: String) {
         currentPath = path
+        externalAudioUri = null
+        externalAudioFileName = null
+        currentSubtitleConfigurations = null
+        reloadMedia()
+    }
+
+    fun reloadMedia() {
+        val path = currentPath ?: return
         viewModelScope.launch {
             val recent = recentDao.getRecent(path)
-            val mediaItem = MediaItem.fromUri(Uri.parse(path))
-            player.setMediaItem(mediaItem)
-            if (recent != null && recent.lastPositionMs > 0) {
-                player.seekTo(recent.lastPositionMs)
+            val pos = if (player.currentPosition > 0) player.currentPosition else (recent?.lastPositionMs ?: 0L)
+
+            val videoItemBuilder = MediaItem.Builder().setUri(Uri.parse(path))
+            if (currentSubtitleConfigurations != null) {
+                videoItemBuilder.setSubtitleConfigurations(currentSubtitleConfigurations!!)
             }
+            val videoItem = videoItemBuilder.build()
+
+            if (externalAudioUri == null) {
+                player.setMediaItem(videoItem)
+            } else {
+                val factory = androidx.media3.exoplayer.source.DefaultMediaSourceFactory(getApplication<Application>())
+                    .setDataSourceFactory(com.maxvale.dzvinaplayer.network.CustomDataSourceFactory(getApplication<Application>()))
+                val videoSource = factory.createMediaSource(videoItem)
+                val audioSource = factory.createMediaSource(MediaItem.fromUri(externalAudioUri!!))
+                val mergedSource = androidx.media3.exoplayer.source.MergingMediaSource(true, videoSource, audioSource)
+                player.setMediaSource(mergedSource)
+                
+                player.addListener(object : androidx.media3.common.Player.Listener {
+                    override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
+                        val audioGroups = tracks.groups.filter { it.type == androidx.media3.common.C.TRACK_TYPE_AUDIO }
+                        if (audioGroups.size > 1) {
+                            val lastGroup = audioGroups.last()
+                            if (!lastGroup.isSelected) {
+                                player.trackSelectionParameters = player.trackSelectionParameters
+                                    .buildUpon()
+                                    .setOverrideForType(androidx.media3.common.TrackSelectionOverride(lastGroup.mediaTrackGroup, 0))
+                                    .build()
+                            }
+                        }
+                        player.removeListener(this)
+                    }
+                })
+            }
+
+            player.seekTo(pos)
             player.prepare()
-            player.playWhenReady = true
+            player.play()
         }
     }
 

@@ -98,6 +98,11 @@ fun PlayerScreen(
 
     // Progress updater
     LaunchedEffect(isPlaying, showControls) {
+        if (isPlaying) {
+            activity?.window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            activity?.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
         while (true) {
             if (showControls) {
                 currentPosition = viewModel.player.currentPosition.coerceAtLeast(0L)
@@ -335,35 +340,73 @@ fun PlayerScreen(
     }
 
     if (showAudioDialog) {
+        val context = LocalContext.current
+        val launcher = rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
+            if (uri != null) {
+                var fileName = "External Audio"
+                if (uri.scheme == "content") {
+                    context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            val index = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                            if (index != -1) {
+                                fileName = cursor.getString(index)
+                            }
+                        }
+                    }
+                } else {
+                    fileName = uri.path?.substringAfterLast('/') ?: fileName
+                }
+                viewModel.externalAudioFileName = fileName
+                viewModel.externalAudioUri = uri
+                viewModel.reloadMedia()
+            }
+            showAudioDialog = false
+        }
         TrackSelectionDialog(
             viewModel = viewModel,
             trackType = C.TRACK_TYPE_AUDIO,
             title = "Audio Tracks",
             onDismiss = { showAudioDialog = false },
-            onPickExternal = {
-                // Not supported for audio right now in simple ExoPlayer setup
-                showAudioDialog = false
-            }
+            onPickExternal = { launcher.launch("audio/*") }
         )
     }
 
     if (showSubtitleDialog) {
-        val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        val context = LocalContext.current
+        val launcher = rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
             if (uri != null) {
-                val newMediaItem = MediaItem.Builder()
-                    .setUri(android.net.Uri.parse(videoPath))
-                    .setSubtitleConfigurations(listOf(
-                        MediaItem.SubtitleConfiguration.Builder(uri)
-                            .setMimeType(if (uri.path?.endsWith("srt", true) == true) MimeTypes.APPLICATION_SUBRIP else MimeTypes.TEXT_VTT)
-                            .setLanguage("en")
-                            .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
-                            .build()
-                    )).build()
-                val pos = viewModel.player.currentPosition
-                viewModel.player.setMediaItem(newMediaItem)
-                viewModel.player.seekTo(pos)
-                viewModel.player.prepare()
-                viewModel.player.play()
+                var fileName = "External Subtitle"
+                if (uri.scheme == "content") {
+                    context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            val index = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                            if (index != -1) {
+                                fileName = cursor.getString(index)
+                            }
+                        }
+                    }
+                } else {
+                    fileName = uri.path?.substringAfterLast('/') ?: fileName
+                }
+
+                val ext = fileName.substringAfterLast('.', "").lowercase()
+                val mimeType = when(ext) {
+                    "srt" -> MimeTypes.APPLICATION_SUBRIP
+                    "ssa", "ass" -> MimeTypes.TEXT_SSA
+                    "vtt" -> MimeTypes.TEXT_VTT
+                    "ttml" -> MimeTypes.APPLICATION_TTML
+                    else -> MimeTypes.APPLICATION_SUBRIP
+                }
+
+                val config = MediaItem.SubtitleConfiguration.Builder(uri)
+                    .setMimeType(mimeType)
+                    .setLanguage("en")
+                    .setLabel(fileName)
+                    .setId("ext_sub")
+                    .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+                    .build()
+                viewModel.currentSubtitleConfigurations = listOf(config)
+                viewModel.reloadMedia()
             }
             showSubtitleDialog = false
         }
@@ -389,28 +432,11 @@ fun TrackSelectionDialog(
     onDismiss: () -> Unit,
     onPickExternal: () -> Unit
 ) {
-    var offsetMs by remember { mutableStateOf(if (trackType == C.TRACK_TYPE_AUDIO) viewModel.audioOffsetMs else viewModel.subtitleOffsetMs) }
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
             Column(modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
-                Text("Delay / Offset: ${offsetMs} ms", style = MaterialTheme.typography.bodyMedium)
-                androidx.compose.material3.Slider(
-                    value = offsetMs.toFloat(),
-                    onValueChange = { offsetMs = it.toLong() },
-                    valueRange = -10000f..10000f,
-                    steps = 19,
-                    onValueChangeFinished = {
-                        if (trackType == C.TRACK_TYPE_AUDIO) {
-                            viewModel.setAudioOffset(offsetMs)
-                        } else {
-                            viewModel.setSubtitleOffset(offsetMs)
-                        }
-                    }
-                )
-                Spacer(modifier = Modifier.height(16.dp))
                 val trackGroups = viewModel.player.currentTracks.groups.filter { it.type == trackType }
                 if (trackGroups.isEmpty()) {
                     Text("No tracks found.")
@@ -425,6 +451,9 @@ fun TrackSelectionDialog(
                                 java.util.Locale(langCode).displayLanguage.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString() }
                             } else {
                                 "Track ${i + 1}"
+                            }
+                            if (trackType == C.TRACK_TYPE_AUDIO && viewModel.externalAudioFileName != null && group == trackGroups.last()) {
+                                label = viewModel.externalAudioFileName!!
                             }
                             if (!labelName.isNullOrEmpty()) {
                                 label += " ($labelName)"
@@ -465,9 +494,9 @@ fun TrackSelectionDialog(
             }
         },
         confirmButton = {
-            if (trackType == C.TRACK_TYPE_TEXT) {
+            if (trackType == C.TRACK_TYPE_TEXT || trackType == C.TRACK_TYPE_AUDIO) {
                 TextButton(onClick = onPickExternal) {
-                    Text("Pick File/Offset")
+                    Text("Pick File")
                 }
             }
         },
