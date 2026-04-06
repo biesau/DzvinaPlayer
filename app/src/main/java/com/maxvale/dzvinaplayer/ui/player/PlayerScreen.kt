@@ -1,25 +1,39 @@
 package com.maxvale.dzvinaplayer.ui.player
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AspectRatio
+import androidx.compose.material.icons.filled.BrightnessHigh
+import androidx.compose.material.icons.filled.BrightnessLow
+import androidx.compose.material.icons.filled.BrightnessMedium
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.VolumeDown
+import androidx.compose.material.icons.filled.VolumeMute
+import androidx.compose.material.icons.filled.VolumeOff
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.C
@@ -35,8 +49,12 @@ import kotlinx.coroutines.delay
 import java.util.concurrent.TimeUnit
 
 import android.app.Activity
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.media.AudioManager
+import android.os.Build
 import android.view.WindowManager
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -63,9 +81,35 @@ fun PlayerScreen(
     var showAudioDialog by remember { mutableStateOf(false) }
     var showSubtitleDialog by remember { mutableStateOf(false) }
 
+    // Volume / Brightness indicator state
+    var showVolumeIndicator by remember { mutableStateOf(false) }
+    var volumePercent by remember { mutableFloatStateOf(0f) }
+    var showBrightnessIndicator by remember { mutableStateOf(false) }
+    var brightnessPercent by remember { mutableFloatStateOf(0.5f) }
+
     // Start playing immediately
     LaunchedEffect(videoPath) {
         viewModel.playFile(videoPath)
+    }
+
+    // Pause when audio output switches to phone speakers (e.g. headphones unplugged)
+    DisposableEffect(Unit) {
+        val noisyReceiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context?, intent: Intent?) {
+                if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
+                    viewModel.player.pause()
+                }
+            }
+        }
+        val filter = IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(noisyReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            context.registerReceiver(noisyReceiver, filter)
+        }
+        onDispose {
+            context.unregisterReceiver(noisyReceiver)
+        }
     }
 
     DisposableEffect(Unit) {
@@ -140,35 +184,60 @@ fun PlayerScreen(
             }
             .pointerInput(Unit) {
                 detectDragGestures(
-                    onDragStart = { /* can show overlay indicating vol/brightness change starts */ },
+                    onDragStart = { startOffset ->
+                        val isLeftSide = startOffset.x < size.width / 2
+                        if (isLeftSide) {
+                            // Initialize brightness indicator
+                            val currentBrightness = activity?.window?.attributes?.screenBrightness ?: -1f
+                            brightnessPercent = if (currentBrightness < 0) 0.5f else currentBrightness
+                            showBrightnessIndicator = true
+                        } else {
+                            // Initialize volume indicator
+                            val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                            val currentVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                            volumePercent = if (maxVol > 0) currentVol.toFloat() / maxVol else 0f
+                            showVolumeIndicator = true
+                        }
+                    },
+                    onDragEnd = {
+                        showBrightnessIndicator = false
+                        showVolumeIndicator = false
+                    },
+                    onDragCancel = {
+                        showBrightnessIndicator = false
+                        showVolumeIndicator = false
+                    },
                     onDrag = { change, dragAmount ->
                         change.consume()
                         val yDelta = dragAmount.y
                         val isLeftSide = change.position.x < size.width / 2
 
                         if (isLeftSide) {
-                            // Brightness
+                            // Brightness — reduced sensitivity (0.7x instead of 2x)
                             activity?.let {
                                 val lp = it.window.attributes
                                 var newBrightness = lp.screenBrightness
                                 if (newBrightness < 0) {
-                                  newBrightness = 0.5f // Default assuming mid if not set
+                                    newBrightness = 0.5f
                                 }
-                                newBrightness -= (yDelta / size.height) * 2f // Sensitivity multiplier
-                                lp.screenBrightness = newBrightness.coerceIn(0.01f, 1f)
+                                newBrightness -= (yDelta / size.height) * 0.7f
+                                newBrightness = newBrightness.coerceIn(0.01f, 1f)
+                                lp.screenBrightness = newBrightness
                                 it.window.attributes = lp
+                                brightnessPercent = newBrightness
+                                showBrightnessIndicator = true
                             }
                         } else {
-                            // Volume
+                            // Volume — reduced sensitivity (3x larger drag needed per step)
                             val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
                             val currentVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-                            
-                            // Map drag to volume steps. Negative drag is up swipe (increase volume)
-                            val volDelta = -(yDelta / (size.height / maxVol)).toInt()
+                            val volDelta = -(yDelta / (size.height.toFloat() / maxVol * 3f)).toInt()
                             if (volDelta != 0) {
                                 val newVol = (currentVol + volDelta).coerceIn(0, maxVol)
                                 audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newVol, 0)
+                                volumePercent = if (maxVol > 0) newVol.toFloat() / maxVol else 0f
                             }
+                            showVolumeIndicator = true
                         }
                     }
                 )
@@ -302,6 +371,47 @@ fun PlayerScreen(
                     }
                 }
             }
+        }
+
+        // Brightness indicator overlay (left side)
+        AnimatedVisibility(
+            visible = showBrightnessIndicator,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .padding(start = 40.dp)
+        ) {
+            AdjustmentIndicator(
+                icon = when {
+                    brightnessPercent > 0.66f -> Icons.Filled.BrightnessHigh
+                    brightnessPercent > 0.33f -> Icons.Filled.BrightnessMedium
+                    else -> Icons.Filled.BrightnessLow
+                },
+                value = brightnessPercent,
+                label = "${(brightnessPercent * 100).toInt()}%"
+            )
+        }
+
+        // Volume indicator overlay (right side)
+        AnimatedVisibility(
+            visible = showVolumeIndicator,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = 40.dp)
+        ) {
+            AdjustmentIndicator(
+                icon = when {
+                    volumePercent <= 0f -> Icons.Filled.VolumeOff
+                    volumePercent < 0.33f -> Icons.Filled.VolumeMute
+                    volumePercent < 0.66f -> Icons.Filled.VolumeDown
+                    else -> Icons.Filled.VolumeUp
+                },
+                value = volumePercent,
+                label = "${(volumePercent * 100).toInt()}%"
+            )
         }
 
         if (showInfoOverlay) {
@@ -504,6 +614,53 @@ fun TrackSelectionDialog(
             TextButton(onClick = onDismiss) { Text("Close") }
         }
     )
+}
+
+@Composable
+private fun AdjustmentIndicator(
+    icon: ImageVector,
+    value: Float,
+    label: String
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.Black.copy(alpha = 0.7f))
+            .padding(horizontal = 16.dp, vertical = 20.dp)
+            .width(56.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(28.dp)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        // Vertical bar indicator
+        Box(
+            modifier = Modifier
+                .width(6.dp)
+                .height(120.dp)
+                .clip(RoundedCornerShape(3.dp))
+                .background(Color.White.copy(alpha = 0.3f))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(value.coerceIn(0f, 1f))
+                    .align(Alignment.BottomCenter)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(Color.White)
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = label,
+            color = Color.White,
+            fontSize = 13.sp
+        )
+    }
 }
 
 private fun formatTime(millis: Long): String {
