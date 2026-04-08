@@ -9,6 +9,11 @@ import androidx.media3.exoplayer.ExoPlayer
 import com.maxvale.dzvinaplayer.data.AppDatabase
 import com.maxvale.dzvinaplayer.data.RecentVideo
 import kotlinx.coroutines.launch
+import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.firebase.analytics.logEvent
+import com.google.firebase.analytics.ktx.analytics
+import com.google.firebase.crashlytics.ktx.crashlytics
+import com.google.firebase.ktx.Firebase
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class PlayerViewModel(application: Application) : AndroidViewModel(application) {
@@ -17,6 +22,21 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         .setRenderersFactory(androidx.media3.exoplayer.DefaultRenderersFactory(application).setExtensionRendererMode(androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER))
         .build()
     private val recentDao = AppDatabase.getDatabase(application).recentVideoDao()
+    private val analytics = Firebase.analytics
+    private val crashlytics = Firebase.crashlytics
+    
+    init {
+        player.addListener(object : androidx.media3.common.Player.Listener {
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                crashlytics.recordException(error)
+                analytics.logEvent("media_playback_error") {
+                    param("error_code", error.errorCode.toLong())
+                    param("message", error.message ?: "unknown")
+                }
+            }
+        })
+    }
+
     var currentPath: String? = null
 
     var audioOffsetMs: Long = 0
@@ -43,6 +63,12 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         externalAudioUri = null
         externalAudioFileName = null
         currentSubtitleConfigurations = null
+        
+        analytics.logEvent("media_playback_start") {
+            param(FirebaseAnalytics.Param.ITEM_NAME, path.substringAfterLast("/"))
+            param("extension", path.substringAfterLast(".", "unknown"))
+        }
+        
         reloadMedia()
     }
 

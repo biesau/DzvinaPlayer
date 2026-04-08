@@ -14,6 +14,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
 import android.os.Environment
+import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.firebase.analytics.logEvent
+import com.google.firebase.analytics.ktx.analytics
+import com.google.firebase.ktx.Firebase
 
 enum class BrowseScope {
     HOME, LOCAL, FTP_ROOT, FTP_BROWSE
@@ -24,6 +28,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val favoriteDao = database.favoriteDao()
     private val recentVideoDao = database.recentVideoDao()
     private val ftpServerDao = database.ftpServerDao()
+    private val analytics = Firebase.analytics
 
     var navController: NavController? = null
 
@@ -56,6 +61,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun addFavorite(path: String, name: String) {
         viewModelScope.launch {
             favoriteDao.insertFavorite(FavoriteLocation(path, name))
+            analytics.logEvent("add_favorite") {
+                param(FirebaseAnalytics.Param.ITEM_NAME, name)
+                param(FirebaseAnalytics.Param.ITEM_ID, path)
+            }
         }
     }
 
@@ -110,6 +119,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _ftpCurrentPath.value = ftpManager.getCurrentDir()
                 _ftpFiles.value = ftpManager.listFiles()
                 setBrowseScope(BrowseScope.FTP_BROWSE)
+                analytics.logEvent("ftp_connect_success") {
+                    param("host", server.host)
+                }
+            } else {
+                analytics.logEvent("ftp_connect_failure") {
+                    param("host", server.host)
+                }
             }
         }
     }
@@ -125,6 +141,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             ftpManager.deleteFile(name, isDir)
             _ftpFiles.value = ftpManager.listFiles("") // refresh current
+            analytics.logEvent("delete_ftp_file") {
+                param(FirebaseAnalytics.Param.ITEM_NAME, name)
+                param("is_dir", if (isDir) 1L else 0L)
+            }
         }
     }
 
