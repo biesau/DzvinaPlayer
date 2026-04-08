@@ -2,42 +2,44 @@ package com.maxvale.dzvinaplayer.ui.screens
 
 import android.os.Environment
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.Storage
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.Wifi
-import androidx.compose.material.icons.filled.InsertDriveFile
-import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material3.Divider
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Icon
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.foundation.layout.height
-import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -46,19 +48,20 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.maxvale.dzvinaplayer.ui.navigation.Screen
 import java.io.File
+
+private const val buyMeACoffee = "https://buymeacoffee.com/zmicier"
 
 @Composable
 fun AllFilesScreen(viewModel: MainViewModel) {
@@ -107,6 +110,7 @@ fun LocalFilesScreen(viewModel: MainViewModel) {
                             )
                         )
                     ),
+                    windowInsets = WindowInsets(0, 0, 0, 0),
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.secondary,
                         titleContentColor = MaterialTheme.colorScheme.onSecondary,
@@ -153,6 +157,7 @@ fun LocalFilesScreen(viewModel: MainViewModel) {
                             )
                         )
                     ),
+                    windowInsets = WindowInsets(0, 0, 0, 0),
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = androidx.compose.ui.graphics.Color.Transparent,
                         titleContentColor = MaterialTheme.colorScheme.onPrimary
@@ -182,7 +187,8 @@ fun LocalFilesScreen(viewModel: MainViewModel) {
                                 text = { Text("Buy me a coffee") },
                                 onClick = {
                                     expanded = false
-                                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://www.buymeacoffee.com/"))
+                                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW,
+                                        buyMeACoffee.toUri())
                                     context.startActivity(intent)
                                 }
                             )
@@ -214,7 +220,7 @@ fun LocalFilesScreen(viewModel: MainViewModel) {
                             viewModel.setCurrentDir(currentDir.parentFile!!)
                         }
                     }, onLongClick = {})
-                    Divider()
+                    HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
                 }
             }
 
@@ -250,7 +256,7 @@ fun LocalFilesScreen(viewModel: MainViewModel) {
                     if (file.isDirectory) file.deleteRecursively() else file.delete()
                     files = getFiles(currentDir)
                 } })
-                Divider()
+                HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
             }
         }
     }
@@ -287,7 +293,7 @@ fun FileListItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
-            imageVector = if (file.isDirectory) Icons.Filled.Folder else Icons.Filled.InsertDriveFile,
+            imageVector = if (file.isDirectory) Icons.Filled.Folder else Icons.AutoMirrored.Filled.InsertDriveFile,
             contentDescription = null,
             tint = if (file.isDirectory) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface
         )
@@ -339,6 +345,7 @@ fun SourcesHomeScreen(viewModel: MainViewModel) {
                         )
                     )
                 ),
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = androidx.compose.ui.graphics.Color.Transparent,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary
@@ -357,7 +364,8 @@ fun SourcesHomeScreen(viewModel: MainViewModel) {
                             text = { Text("Buy me a coffee") },
                             onClick = {
                                 expanded = false
-                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://www.buymeacoffee.com/"))
+                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW,
+                                    buyMeACoffee.toUri())
                                 context.startActivity(intent)
                             }
                         )
@@ -382,11 +390,11 @@ fun SourcesHomeScreen(viewModel: MainViewModel) {
                 viewModel.setCurrentDir(Environment.getExternalStorageDirectory())
                 viewModel.setBrowseScope(BrowseScope.LOCAL)
             })
-            Divider()
+            HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
             ListItemRow(title = "FTP Servers", icon = Icons.Filled.Cloud, onClick = {
                 viewModel.setBrowseScope(BrowseScope.FTP_ROOT)
             })
-            Divider()
+            HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
         }
     }
 }
@@ -442,6 +450,7 @@ fun FavoritesScreen(viewModel: MainViewModel) {
                             )
                         )
                     ),
+                    windowInsets = WindowInsets(0, 0, 0, 0),
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.secondary,
                         titleContentColor = MaterialTheme.colorScheme.onSecondary,
@@ -477,6 +486,7 @@ fun FavoritesScreen(viewModel: MainViewModel) {
                             )
                         )
                     ),
+                    windowInsets = WindowInsets(0, 0, 0, 0),
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = androidx.compose.ui.graphics.Color.Transparent,
                         titleContentColor = MaterialTheme.colorScheme.onPrimary
@@ -544,7 +554,7 @@ fun FavoritesScreen(viewModel: MainViewModel) {
                             Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         }
                     }
-                    Divider()
+                    HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
                 }
             }
         }
@@ -571,6 +581,7 @@ fun RecentScreen(viewModel: MainViewModel) {
                             )
                         )
                     ),
+                    windowInsets = WindowInsets(0, 0, 0, 0),
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.secondary,
                         titleContentColor = MaterialTheme.colorScheme.onSecondary,
@@ -606,6 +617,7 @@ fun RecentScreen(viewModel: MainViewModel) {
                             )
                         )
                     ),
+                    windowInsets = WindowInsets(0, 0, 0, 0),
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = androidx.compose.ui.graphics.Color.Transparent,
                         titleContentColor = MaterialTheme.colorScheme.onPrimary
@@ -661,7 +673,7 @@ fun RecentScreen(viewModel: MainViewModel) {
                             Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         }
                     }
-                    Divider()
+                    HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
                 }
             }
         }
@@ -690,6 +702,7 @@ fun FtpServersScreen(viewModel: MainViewModel) {
                         )
                     )
                 ),
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = androidx.compose.ui.graphics.Color.Transparent,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary
@@ -717,7 +730,7 @@ fun FtpServersScreen(viewModel: MainViewModel) {
                     ListItemRow(title = server.name, icon = Icons.Filled.Cloud, onClick = {
                         viewModel.connectToFtp(server)
                     })
-                    Divider()
+                    HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
                 }
             }
         }
@@ -787,13 +800,14 @@ fun FtpBrowseScreen(viewModel: MainViewModel) {
                         )
                     )
                 ),
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = androidx.compose.ui.graphics.Color.Transparent,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary
                 ),
                 navigationIcon = {
                     IconButton(onClick = { viewModel.ftpGoUp() }) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onPrimary)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onPrimary)
                     }
                 }
             )
@@ -822,7 +836,7 @@ fun FtpBrowseScreen(viewModel: MainViewModel) {
                 }, onDeleteClick = {
                     viewModel.deleteFtpFile(file.name, isDir)
                 })
-                Divider()
+                HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
             }
         }
     }
@@ -843,6 +857,7 @@ fun AboutScreen(onNavigateBack: () -> Unit) {
                         )
                     )
                 ),
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = androidx.compose.ui.graphics.Color.Transparent,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary
@@ -863,13 +878,13 @@ fun AboutScreen(onNavigateBack: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(32.dp))
-            Text("DźvinaPlayer", style = MaterialTheme.typography.headlineLarge, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+            Text("Dźvina Player", style = MaterialTheme.typography.headlineLarge, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
             Text("Version 1.0.0", style = MaterialTheme.typography.bodyLarge)
             Spacer(modifier = Modifier.height(16.dp))
             Text("Created by Źmicier Biesau", style = MaterialTheme.typography.bodyLarge)
             Spacer(modifier = Modifier.height(32.dp))
-            Text("A simple, beautiful video player and file manager for Android.", style = MaterialTheme.typography.bodyMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Text("A simple, beautiful video player for Android.", style = MaterialTheme.typography.bodyMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
     }
 }
