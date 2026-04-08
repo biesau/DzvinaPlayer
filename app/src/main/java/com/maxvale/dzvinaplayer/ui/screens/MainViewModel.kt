@@ -83,6 +83,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun refreshFavoritesAvailability() {
+        viewModelScope.launch {
+            val currentFavorites = favorites.value
+            currentFavorites.forEach { favorite ->
+                val file = File(favorite.path)
+                if (!file.exists()) {
+                    favoriteDao.deleteFavorite(favorite)
+                }
+            }
+        }
+    }
+
     val ftpManager = com.maxvale.dzvinaplayer.network.FtpClientManager()
 
     private val _ftpFiles = MutableStateFlow<List<org.apache.commons.net.ftp.FTPFile>>(emptyList())

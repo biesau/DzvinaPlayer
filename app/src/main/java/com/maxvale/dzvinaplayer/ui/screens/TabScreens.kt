@@ -425,6 +425,10 @@ fun FavoritesScreen(viewModel: MainViewModel) {
     var selectionMode by remember { mutableStateOf(false) }
     val selectedFavorites = remember { mutableStateListOf<com.maxvale.dzvinaplayer.data.FavoriteLocation>() }
 
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        viewModel.refreshFavoritesAvailability()
+    }
+
     Scaffold(
         topBar = {
             if (selectionMode) {

@@ -86,6 +86,7 @@ fun PlayerScreen(
     var volumePercent by remember { mutableFloatStateOf(0f) }
     var showBrightnessIndicator by remember { mutableStateOf(false) }
     var brightnessPercent by remember { mutableFloatStateOf(0.5f) }
+    var volumeAccumulator by remember { mutableFloatStateOf(0f) }
 
     // Start playing immediately
     LaunchedEffect(videoPath) {
@@ -196,6 +197,7 @@ fun PlayerScreen(
                             val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
                             val currentVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
                             volumePercent = if (maxVol > 0) currentVol.toFloat() / maxVol else 0f
+                            volumeAccumulator = 0f
                             showVolumeIndicator = true
                         }
                     },
@@ -228,14 +230,19 @@ fun PlayerScreen(
                                 showBrightnessIndicator = true
                             }
                         } else {
-                            // Volume — reduced sensitivity (3x larger drag needed per step)
+                            // Volume — improved sensitivity with accumulator
                             val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
                             val currentVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-                            val volDelta = -(yDelta / (size.height.toFloat() / maxVol * 3f)).toInt()
-                            if (volDelta != 0) {
-                                val newVol = (currentVol + volDelta).coerceIn(0, maxVol)
+                            
+                            volumeAccumulator -= yDelta
+                            val pxPerStep = size.height / (maxVol.coerceAtLeast(1) * 2f) // Full height = half volume range for comfortable control
+                            
+                            if (kotlin.math.abs(volumeAccumulator) >= pxPerStep) {
+                                val steps = (volumeAccumulator / pxPerStep).toInt()
+                                val newVol = (currentVol + steps).coerceIn(0, maxVol)
                                 audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newVol, 0)
                                 volumePercent = if (maxVol > 0) newVol.toFloat() / maxVol else 0f
+                                volumeAccumulator -= steps * pxPerStep
                             }
                             showVolumeIndicator = true
                         }
