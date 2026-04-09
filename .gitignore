@@ -33,3 +33,4 @@ google-services.json
 # Android Profiling
 *.hprof
 build_log.txt
+.DS_Store
