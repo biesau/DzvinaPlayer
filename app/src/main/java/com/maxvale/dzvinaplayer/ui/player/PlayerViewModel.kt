@@ -59,6 +59,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     var currentSubtitleConfigurations: List<MediaItem.SubtitleConfiguration>? = null
 
     fun playFile(path: String) {
+        if (currentPath == path && player.mediaItemCount > 0) return
         currentPath = path
         externalAudioUri = null
         externalAudioFileName = null
@@ -69,11 +70,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             param("extension", path.substringAfterLast(".", "unknown"))
         }
         
+        player.playWhenReady = true
         reloadMedia()
     }
 
     fun reloadMedia() {
         val path = currentPath ?: return
+        val wasPlaying = player.playWhenReady
         viewModelScope.launch {
             val recent = recentDao.getRecent(path)
             val pos = if (player.currentPosition > 0) player.currentPosition else (recent?.lastPositionMs ?: 0L)
@@ -113,7 +116,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
             player.seekTo(pos)
             player.prepare()
-            player.play()
+            if (wasPlaying) {
+                player.play()
+            }
         }
     }
 

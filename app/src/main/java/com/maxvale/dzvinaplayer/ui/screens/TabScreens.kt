@@ -57,6 +57,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.maxvale.dzvinaplayer.ui.navigation.Screen
 import java.io.File
@@ -78,9 +79,19 @@ fun AllFilesScreen(viewModel: MainViewModel) {
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun LocalFilesScreen(viewModel: MainViewModel) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val internalStorage = Environment.getExternalStorageDirectory()
     val currentDir by viewModel.currentDir.collectAsState()
-    var files by remember(currentDir) { mutableStateOf(getFiles(currentDir)) }
+    var files by remember(currentDir) { mutableStateOf(getFiles(context, currentDir)) }
+    
+    // Refresh files when returning to foreground (in case user changed Selected Photos)
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
+            files = getFiles(context, currentDir)
+        }
+    }
+
     var selectionMode by remember { mutableStateOf(false) }
     val selectedFiles = remember { mutableStateListOf<File>() }
 
@@ -138,7 +149,7 @@ fun LocalFilesScreen(viewModel: MainViewModel) {
                         }
                         IconButton(onClick = {
                             selectedFiles.forEach { if (it.isDirectory) it.deleteRecursively() else it.delete() }
-                            files = getFiles(currentDir)
+                            files = getFiles(context, currentDir)
                             selectionMode = false
                             selectedFiles.clear()
                         }) {
@@ -175,7 +186,6 @@ fun LocalFilesScreen(viewModel: MainViewModel) {
                     },
                     actions = {
                         var expanded by remember { mutableStateOf(false) }
-                        val context = androidx.compose.ui.platform.LocalContext.current
                         IconButton(onClick = { expanded = true }) {
                             Icon(Icons.Filled.MoreVert, contentDescription = "Options")
                         }
@@ -254,7 +264,7 @@ fun LocalFilesScreen(viewModel: MainViewModel) {
                     }
                 }, onDeleteClick = if (selectionMode) null else { {
                     if (file.isDirectory) file.deleteRecursively() else file.delete()
-                    files = getFiles(currentDir)
+                    files = getFiles(context, currentDir)
                 } })
                 HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
             }
@@ -262,9 +272,8 @@ fun LocalFilesScreen(viewModel: MainViewModel) {
     }
 }
 
-fun getFiles(dir: File): List<File> {
-    val files = dir.listFiles() ?: return emptyList()
-    return files.sortedWith(compareBy({ !it.isDirectory }, { it.name.lowercase() }))
+fun getFiles(context: android.content.Context, dir: File): List<File> {
+    return com.maxvale.dzvinaplayer.utils.MediaStoreHelper.getMediaInFolder(context, dir.absolutePath).map { it.toFile() }
 }
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)

@@ -70,12 +70,12 @@ fun PlayerScreen(
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
     val activity = context as? Activity
     
-    var showControls by remember { mutableStateOf(false) }
-    var isPlaying by remember { mutableStateOf(true) }
-    var currentPosition by remember { mutableStateOf(0L) }
-    var duration by remember { mutableStateOf(0L) }
-    var showRemainingTime by remember { mutableStateOf(false) }
-    var resizeMode by remember { mutableStateOf(AspectRatioFrameLayout.RESIZE_MODE_FIT) }
+    var showControls by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    var isPlaying by remember { mutableStateOf(viewModel.player.isPlaying) }
+    var currentPosition by remember { mutableStateOf(viewModel.player.currentPosition.coerceAtLeast(0L)) }
+    var duration by remember { mutableStateOf(viewModel.player.duration.coerceAtLeast(0L)) }
+    var showRemainingTime by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    var resizeMode by androidx.compose.runtime.saveable.rememberSaveable { mutableIntStateOf(AspectRatioFrameLayout.RESIZE_MODE_FIT) }
     var showInfoOverlay by remember { mutableStateOf(false) }
     var showOptionsMenu by remember { mutableStateOf(false) }
     var showAudioDialog by remember { mutableStateOf(false) }
@@ -129,13 +129,22 @@ fun PlayerScreen(
                     duration = viewModel.player.duration.coerceAtLeast(0L)
                 }
             }
+            override fun onPositionDiscontinuity(
+                oldPosition: Player.PositionInfo,
+                newPosition: Player.PositionInfo,
+                reason: Int
+            ) {
+                currentPosition = newPosition.positionMs.coerceAtLeast(0L)
+            }
         }
         viewModel.player.addListener(listener)
         onDispose {
             insetsController?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
             viewModel.saveRecent()
             viewModel.player.removeListener(listener)
-            viewModel.player.stop()
+            if (activity?.isChangingConfigurations != true) {
+                viewModel.player.stop()
+            }
             // Reset brightness when leaving
             activity?.window?.attributes = activity?.window?.attributes?.apply { screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE }
         }
@@ -149,7 +158,7 @@ fun PlayerScreen(
             activity?.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
         while (true) {
-            if (showControls) {
+            if (showControls || isPlaying) {
                 currentPosition = viewModel.player.currentPosition.coerceAtLeast(0L)
             }
             delay(500)

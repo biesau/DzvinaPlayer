@@ -1,11 +1,8 @@
 package com.maxvale.dzvinaplayer
 
-import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Environment
-import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -25,25 +22,35 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             DzvinaplayerTheme {
-                // Request permissions
-                LaunchedEffect(Unit) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        if (!Environment.isExternalStorageManager()) {
-                            try {
-                                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
-                                intent.addCategory("android.intent.category.DEFAULT")
-                                intent.data = Uri.parse(String.format("package:%s", applicationContext.packageName))
-                                startActivity(intent)
-                            } catch (e: Exception) {
-                                val intent = Intent()
-                                intent.action = Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION
-                                startActivity(intent)
-                            }
-                        }
-                    } else {
-                        // Older Android versions, request READ_EXTERNAL_STORAGE normally
-                        // For simplicity, we assume R+ for this specific app flow based on minSdk=30
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val permissionsToRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    arrayOf(
+                        android.Manifest.permission.READ_MEDIA_AUDIO,
+                        android.Manifest.permission.READ_MEDIA_VIDEO,
+                        android.Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
+                    )
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    arrayOf(
+                        android.Manifest.permission.READ_MEDIA_AUDIO,
+                        android.Manifest.permission.READ_MEDIA_VIDEO
+                    )
+                } else {
+                    arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+                }
+
+                val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
+                    androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+                ) { permissions ->
+                    // Logic to refresh content if partial access is granted
+                    val isPartial = permissions[android.Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED] == true
+                    val isFullVideo = permissions[android.Manifest.permission.READ_MEDIA_VIDEO] == true
+                    if (isPartial || isFullVideo) {
+                        // In a real app, you might trigger a ViewModel refresh here
                     }
+                }
+
+                LaunchedEffect(Unit) {
+                    launcher.launch(permissionsToRequest)
                 }
 
                 // A surface container using the 'background' color from the theme
