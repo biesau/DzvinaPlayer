@@ -21,7 +21,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Cloud
@@ -29,7 +28,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Storage
@@ -181,7 +179,7 @@ fun LocalFilesScreen(viewModel: MainViewModel) {
                                 viewModel.setBrowseScope(BrowseScope.HOME)
                             }
                         }) {
-                            Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
                     },
                     actions = {
@@ -553,7 +551,7 @@ fun FavoritesScreen(viewModel: MainViewModel) {
                             .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(if (File(favorite.path).isDirectory) Icons.Filled.Folder else Icons.Filled.InsertDriveFile, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+                        Icon(if (File(favorite.path).isDirectory) Icons.Filled.Folder else Icons.AutoMirrored.Filled.InsertDriveFile, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
                         Spacer(modifier = Modifier.width(16.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(favorite.name, style = MaterialTheme.typography.bodyLarge)
@@ -671,7 +669,7 @@ fun RecentScreen(viewModel: MainViewModel) {
                             .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Filled.InsertDriveFile, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
+                        Icon(Icons.AutoMirrored.Filled.InsertDriveFile, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
                         Spacer(modifier = Modifier.width(16.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(recent.name, style = MaterialTheme.typography.bodyLarge)
@@ -718,7 +716,7 @@ fun FtpServersScreen(viewModel: MainViewModel) {
                 ),
                 navigationIcon = {
                     IconButton(onClick = { viewModel.setBrowseScope(BrowseScope.HOME) }) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onPrimary)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onPrimary)
                     }
                 }
             )
@@ -825,7 +823,7 @@ fun FtpBrowseScreen(viewModel: MainViewModel) {
         LazyColumn(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
             items(files) { file ->
                 val isDir = file.isDirectory
-                val icon = if (isDir) Icons.Filled.Folder else Icons.Filled.InsertDriveFile
+                val icon = if (isDir) Icons.Filled.Folder else Icons.AutoMirrored.Filled.InsertDriveFile
                 ListItemRow(title = file.name, icon = icon, onClick = {
                     if (isDir) {
                         val newPath = if (currentPath == "/") "/${file.name}" else "$currentPath/${file.name}"
@@ -873,7 +871,7 @@ fun AboutScreen(onNavigateBack: () -> Unit) {
                 ),
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onPrimary)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onPrimary)
                     }
                 }
             )

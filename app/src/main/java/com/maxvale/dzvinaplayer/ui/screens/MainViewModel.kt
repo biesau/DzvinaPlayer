@@ -16,8 +16,8 @@ import java.io.File
 import android.os.Environment
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.analytics.logEvent
-import com.google.firebase.analytics.ktx.analytics
-import com.google.firebase.ktx.Firebase
+import com.google.firebase.analytics.analytics
+import com.google.firebase.Firebase
 
 enum class BrowseScope {
     HOME, LOCAL, FTP_ROOT, FTP_BROWSE

@@ -20,10 +20,10 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.VolumeDown
-import androidx.compose.material.icons.filled.VolumeMute
-import androidx.compose.material.icons.filled.VolumeOff
-import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.VolumeDown
+import androidx.compose.material.icons.automirrored.filled.VolumeMute
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -420,10 +420,10 @@ fun PlayerScreen(
         ) {
             AdjustmentIndicator(
                 icon = when {
-                    volumePercent <= 0f -> Icons.Filled.VolumeOff
-                    volumePercent < 0.33f -> Icons.Filled.VolumeMute
-                    volumePercent < 0.66f -> Icons.Filled.VolumeDown
-                    else -> Icons.Filled.VolumeUp
+                    volumePercent <= 0f -> Icons.AutoMirrored.Filled.VolumeOff
+                    volumePercent < 0.33f -> Icons.AutoMirrored.Filled.VolumeMute
+                    volumePercent < 0.66f -> Icons.AutoMirrored.Filled.VolumeDown
+                    else -> Icons.AutoMirrored.Filled.VolumeUp
                 },
                 value = volumePercent,
                 label = "${(volumePercent * 100).toInt()}%"
@@ -574,7 +574,7 @@ fun TrackSelectionDialog(
                             val langCode = format.language
                             val labelName = format.label
                             var label = if (langCode != null) {
-                                java.util.Locale(langCode).displayLanguage.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString() }
+                                java.util.Locale.forLanguageTag(langCode).displayLanguage.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString() }
                             } else {
                                 "Track ${i + 1}"
                             }
