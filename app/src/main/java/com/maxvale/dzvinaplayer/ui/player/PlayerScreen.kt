@@ -45,6 +45,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.delay
 import java.util.concurrent.TimeUnit
 
@@ -60,410 +61,435 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 
+@UnstableApi
 @Composable
 fun PlayerScreen(
     videoPath: String,
     viewModel: PlayerViewModel,
     onNavigateBack: () -> Unit
 ) {
-    val context = LocalContext.current
-    val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
-    val activity = context as? Activity
-    
-    var showControls by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
-    var isPlaying by remember { mutableStateOf(viewModel.player.isPlaying) }
-    var currentPosition by remember { mutableStateOf(viewModel.player.currentPosition.coerceAtLeast(0L)) }
-    var duration by remember { mutableStateOf(viewModel.player.duration.coerceAtLeast(0L)) }
-    var showRemainingTime by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
-    var resizeMode by androidx.compose.runtime.saveable.rememberSaveable { mutableIntStateOf(AspectRatioFrameLayout.RESIZE_MODE_FIT) }
-    var showInfoOverlay by remember { mutableStateOf(false) }
-    var showOptionsMenu by remember { mutableStateOf(false) }
-    var showAudioDialog by remember { mutableStateOf(false) }
-    var showSubtitleDialog by remember { mutableStateOf(false) }
-
-    // Volume / Brightness indicator state
-    var showVolumeIndicator by remember { mutableStateOf(false) }
-    var volumePercent by remember { mutableFloatStateOf(0f) }
-    var showBrightnessIndicator by remember { mutableStateOf(false) }
-    var brightnessPercent by remember { mutableFloatStateOf(0.5f) }
-    var volumeAccumulator by remember { mutableFloatStateOf(0f) }
-
-    // Start playing immediately
-    LaunchedEffect(videoPath) {
-        viewModel.playFile(videoPath)
-    }
-
-    // Pause when audio output switches to phone speakers (e.g. headphones unplugged)
-    DisposableEffect(Unit) {
-        val noisyReceiver = object : BroadcastReceiver() {
-            override fun onReceive(ctx: Context?, intent: Intent?) {
-                if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
-                    viewModel.player.pause()
-                }
-            }
-        }
-        val filter = IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(noisyReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            context.registerReceiver(noisyReceiver, filter)
-        }
-        onDispose {
-            context.unregisterReceiver(noisyReceiver)
-        }
-    }
-
-    DisposableEffect(Unit) {
-        val window = activity?.window
-        val insetsController = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, it.decorView) }
+    com.maxvale.dzvinaplayer.ui.theme.DzvinaplayerTheme(useSystemUI = false) {
+        val context = LocalContext.current
+        val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
+        val activity = context as? Activity
         
-        insetsController?.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        insetsController?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        var showControls by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+        var isPlaying by remember { mutableStateOf(viewModel.player.isPlaying) }
+        var currentPosition by remember { mutableLongStateOf(viewModel.player.currentPosition.coerceAtLeast(0L)) }
+        var duration by remember { mutableLongStateOf(viewModel.player.duration.coerceAtLeast(0L)) }
+        var showRemainingTime by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+        var resizeMode by androidx.compose.runtime.saveable.rememberSaveable { mutableIntStateOf(AspectRatioFrameLayout.RESIZE_MODE_FIT) }
+        var showInfoOverlay by remember { mutableStateOf(false) }
+        var showOptionsMenu by remember { mutableStateOf(false) }
+        var showAudioDialog by remember { mutableStateOf(false) }
+        var showSubtitleDialog by remember { mutableStateOf(false) }
 
-        val listener = object : Player.Listener {
-            override fun onIsPlayingChanged(playing: Boolean) {
-                isPlaying = playing
-            }
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playbackState == Player.STATE_READY) {
-                    duration = viewModel.player.duration.coerceAtLeast(0L)
+        // Volume / Brightness indicator state
+        var showVolumeIndicator by remember { mutableStateOf(false) }
+        var volumePercent by remember { mutableFloatStateOf(0f) }
+        var showBrightnessIndicator by remember { mutableStateOf(false) }
+        var brightnessPercent by remember { mutableFloatStateOf(0.5f) }
+        var volumeAccumulator by remember { mutableFloatStateOf(0f) }
+
+        // Start playing immediately
+        LaunchedEffect(videoPath) {
+            viewModel.playFile(videoPath)
+        }
+
+        // Pause when audio output switches to phone speakers (e.g. headphones unplugged)
+        DisposableEffect(Unit) {
+            val noisyReceiver = object : BroadcastReceiver() {
+                override fun onReceive(ctx: Context?, intent: Intent?) {
+                    if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
+                        viewModel.player.pause()
+                    }
                 }
             }
-            override fun onPositionDiscontinuity(
-                oldPosition: Player.PositionInfo,
-                newPosition: Player.PositionInfo,
-                reason: Int
-            ) {
-                currentPosition = newPosition.positionMs.coerceAtLeast(0L)
+            val filter = IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.registerReceiver(noisyReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                context.registerReceiver(noisyReceiver, filter)
+            }
+            onDispose {
+                context.unregisterReceiver(noisyReceiver)
             }
         }
-        viewModel.player.addListener(listener)
-        onDispose {
-            insetsController?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-            viewModel.saveRecent()
-            viewModel.player.removeListener(listener)
-            if (activity?.isChangingConfigurations != true) {
-                viewModel.player.stop()
-            }
-            // Reset brightness when leaving
-            activity?.window?.attributes = activity?.window?.attributes?.apply { screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE }
-        }
-    }
 
-    // Progress updater
-    LaunchedEffect(isPlaying, showControls) {
-        if (isPlaying) {
-            activity?.window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        } else {
-            activity?.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        }
-        while (true) {
-            if (showControls || isPlaying) {
-                currentPosition = viewModel.player.currentPosition.coerceAtLeast(0L)
-            }
-            delay(500)
-        }
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onTap = { showControls = !showControls },
-                    onDoubleTap = { offset ->
-                        val isMiddle = offset.x > size.width * 0.33f && offset.x < size.width * 0.66f
-                        val isLeft = offset.x <= size.width * 0.33f
-                        val isRight = offset.x >= size.width * 0.66f
-
-                        if (isMiddle) {
-                            if (isPlaying) viewModel.player.pause() else viewModel.player.play()
-                        } else if (isLeft) {
-                            val newPos = (viewModel.player.currentPosition - 10000).coerceAtLeast(0)
-                            viewModel.player.seekTo(newPos)
-                            currentPosition = newPos
-                        } else if (isRight) {
-                            val dur = viewModel.player.duration.coerceAtLeast(0)
-                            val newPos = if (dur > 0) (viewModel.player.currentPosition + 10000).coerceAtMost(dur) else viewModel.player.currentPosition + 10000
-                            viewModel.player.seekTo(newPos)
-                            currentPosition = newPos
-                        }
-                    }
-                )
-            }
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = { startOffset ->
-                        val isLeftSide = startOffset.x < size.width / 2
-                        if (isLeftSide) {
-                            // Initialize brightness indicator
-                            val currentBrightness = activity?.window?.attributes?.screenBrightness ?: -1f
-                            brightnessPercent = if (currentBrightness < 0) 0.5f else currentBrightness
-                            showBrightnessIndicator = true
-                        } else {
-                            // Initialize volume indicator
-                            val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                            val currentVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-                            volumePercent = if (maxVol > 0) currentVol.toFloat() / maxVol else 0f
-                            volumeAccumulator = 0f
-                            showVolumeIndicator = true
-                        }
-                    },
-                    onDragEnd = {
-                        showBrightnessIndicator = false
-                        showVolumeIndicator = false
-                    },
-                    onDragCancel = {
-                        showBrightnessIndicator = false
-                        showVolumeIndicator = false
-                    },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        val yDelta = dragAmount.y
-                        val isLeftSide = change.position.x < size.width / 2
-
-                        if (isLeftSide) {
-                            // Brightness — reduced sensitivity (0.7x instead of 2x)
-                            activity?.let {
-                                val lp = it.window.attributes
-                                var newBrightness = lp.screenBrightness
-                                if (newBrightness < 0) {
-                                    newBrightness = 0.5f
-                                }
-                                newBrightness -= (yDelta / size.height) * 0.7f
-                                newBrightness = newBrightness.coerceIn(0.01f, 1f)
-                                lp.screenBrightness = newBrightness
-                                it.window.attributes = lp
-                                brightnessPercent = newBrightness
-                                showBrightnessIndicator = true
-                            }
-                        } else {
-                            // Volume — improved sensitivity with accumulator
-                            val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                            val currentVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-                            
-                            volumeAccumulator -= yDelta
-                            val pxPerStep = size.height / (maxVol.coerceAtLeast(1) * 2f) // Full height = half volume range for comfortable control
-                            
-                            if (kotlin.math.abs(volumeAccumulator) >= pxPerStep) {
-                                val steps = (volumeAccumulator / pxPerStep).toInt()
-                                val newVol = (currentVol + steps).coerceIn(0, maxVol)
-                                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newVol, 0)
-                                volumePercent = if (maxVol > 0) newVol.toFloat() / maxVol else 0f
-                                volumeAccumulator -= steps * pxPerStep
-                            }
-                            showVolumeIndicator = true
-                        }
-                    }
-                )
-            }
-    ) {
-        AndroidView(
-            factory = { context ->
-                PlayerView(context).apply {
-                    player = viewModel.player
-                    useController = false
-                    this.resizeMode = resizeMode
+        DisposableEffect(Unit) {
+            val window = activity?.window
+            if (window != null) {
+                androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+                val insetsController = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+                insetsController.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                insetsController.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+                
+                // On some devices, we might need to set status bar color to transparent
+                window.statusBarColor = android.graphics.Color.TRANSPARENT
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    window.attributes.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
                 }
-            },
-            update = { view ->
-                view.resizeMode = resizeMode
-            },
-            modifier = Modifier.fillMaxSize()
-        )
+            }
 
-        if (showControls) {
+            val listener = object : Player.Listener {
+                override fun onIsPlayingChanged(playing: Boolean) {
+                    isPlaying = playing
+                }
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    if (playbackState == Player.STATE_READY) {
+                        duration = viewModel.player.duration.coerceAtLeast(0L)
+                    }
+                }
+                override fun onPositionDiscontinuity(
+                    oldPosition: Player.PositionInfo,
+                    newPosition: Player.PositionInfo,
+                    reason: Int
+                ) {
+                    currentPosition = newPosition.positionMs.coerceAtLeast(0L)
+                }
+            }
+            viewModel.player.addListener(listener)
+            onDispose {
+                window?.let {
+                    androidx.core.view.WindowCompat.setDecorFitsSystemWindows(it, true)
+                    val insetsController = androidx.core.view.WindowCompat.getInsetsController(it, it.decorView)
+                    insetsController.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+                    // Theme will restore status bar color in its own SideEffect or we can just let it be
+                }
+                viewModel.saveRecent()
+                viewModel.player.removeListener(listener)
+                if (activity?.isChangingConfigurations != true) {
+                    viewModel.player.stop()
+                }
+                // Reset brightness when leaving
+                activity?.window?.attributes = activity?.window?.attributes?.apply { screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE }
+            }
+        }
+
+        // Progress updater
+        LaunchedEffect(isPlaying, showControls) {
+            if (isPlaying) {
+                activity?.window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            } else {
+                activity?.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
+            while (true) {
+                if (showControls || isPlaying) {
+                    currentPosition = viewModel.player.currentPosition.coerceAtLeast(0L)
+                }
+                delay(500)
+            }
+        }
+
+        BackHandler {
+            onNavigateBack()
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+        ) {
+            AndroidView(
+                factory = { context ->
+                    PlayerView(context).apply {
+                        player = viewModel.player
+                        useController = false
+                        this.resizeMode = resizeMode
+                    }
+                },
+                update = { view ->
+                    view.resizeMode = resizeMode
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+
+            // GestureDetector and Controls
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.6f))
-            ) {
-                // Top controls (back, filename)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.TopCenter)
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
-                    }
-                    Text(
-                        text = videoPath.substringAfterLast("/"),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White,
-                        maxLines = 1,
-                        modifier = Modifier.weight(1f).padding(start = 8.dp)
-                    )
-                    IconButton(onClick = { showInfoOverlay = !showInfoOverlay; if(showInfoOverlay) showControls = false }) {
-                        Icon(Icons.Filled.Info, contentDescription = "Info", tint = Color.White)
-                    }
-                    Box {
-                        IconButton(onClick = { showOptionsMenu = true }) {
-                            Icon(Icons.Filled.MoreVert, contentDescription = "Options", tint = Color.White)
-                        }
-                        DropdownMenu(
-                            expanded = showOptionsMenu,
-                            onDismissRequest = { showOptionsMenu = false }
-                        ) {
-                            DropdownMenuItem(text = { Text("Audio tracks") }, onClick = { showOptionsMenu = false; showAudioDialog = true; showControls = false })
-                            DropdownMenuItem(text = { Text("Subtitle tracks") }, onClick = { showOptionsMenu = false; showSubtitleDialog = true; showControls = false })
-                        }
-                    }
-                }
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onTap = { showControls = !showControls },
+                            onDoubleTap = { offset ->
+                                val isMiddle = offset.x > size.width * 0.33f && offset.x < size.width * 0.66f
+                                val isLeft = offset.x <= size.width * 0.33f
+                                val isRight = offset.x >= size.width * 0.66f
 
-                // Center Play/Pause
-                IconButton(
-                    onClick = {
-                        if (isPlaying) viewModel.player.pause() else viewModel.player.play()
-                    },
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .size(80.dp)
-                ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = "Play/Pause",
-                        tint = Color.White,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-
-                // Bottom controls
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.BottomCenter)
-                        .padding(16.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = formatTime(currentPosition),
-                            color = Color.White,
-                            style = MaterialTheme.typography.bodyMedium
+                                if (isMiddle) {
+                                    if (isPlaying) viewModel.player.pause() else viewModel.player.play()
+                                } else if (isLeft) {
+                                    val newPos = (viewModel.player.currentPosition - 10000).coerceAtLeast(0)
+                                    viewModel.player.seekTo(newPos)
+                                    currentPosition = newPos
+                                } else if (isRight) {
+                                    val dur = viewModel.player.duration.coerceAtLeast(0)
+                                    val newPos = if (dur > 0) (viewModel.player.currentPosition + 10000).coerceAtMost(dur) else viewModel.player.currentPosition + 10000
+                                    viewModel.player.seekTo(newPos)
+                                    currentPosition = newPos
+                                }
+                            }
                         )
-                        Slider(
-                            value = if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f,
-                            onValueChange = { newVal ->
-                                val target = (newVal * duration).toLong()
-                                currentPosition = target
-                                viewModel.player.seekTo(target)
+                    }
+                    .pointerInput(Unit) {
+                        detectDragGestures(
+                            onDragStart = { startOffset ->
+                                val isLeftSide = startOffset.x < size.width / 2
+                                if (isLeftSide) {
+                                    // Initialize brightness indicator
+                                    val currentBrightness = activity?.window?.attributes?.screenBrightness ?: -1f
+                                    brightnessPercent = if (currentBrightness < 0) 0.5f else currentBrightness
+                                    showBrightnessIndicator = true
+                                } else {
+                                    // Initialize volume indicator
+                                    val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                                    val currentVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                                    volumePercent = if (maxVol > 0) currentVol.toFloat() / maxVol else 0f
+                                    volumeAccumulator = 0f
+                                    showVolumeIndicator = true
+                                }
+                            },
+                            onDragEnd = {
+                                showBrightnessIndicator = false
+                                showVolumeIndicator = false
+                            },
+                            onDragCancel = {
+                                showBrightnessIndicator = false
+                                showVolumeIndicator = false
+                            },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                val yDelta = dragAmount.y
+                                val isLeftSide = change.position.x < size.width / 2
+
+                                if (isLeftSide) {
+                                    // Brightness — reduced sensitivity (0.7x instead of 2x)
+                                    activity?.let {
+                                        val lp = it.window.attributes
+                                        var newBrightness = lp.screenBrightness
+                                        if (newBrightness < 0) {
+                                            newBrightness = 0.5f
+                                        }
+                                        newBrightness -= (yDelta / size.height) * 0.7f
+                                        newBrightness = newBrightness.coerceIn(0.01f, 1f)
+                                        lp.screenBrightness = newBrightness
+                                        it.window.attributes = lp
+                                        brightnessPercent = newBrightness
+                                        showBrightnessIndicator = true
+                                    }
+                                } else {
+                                    // Volume — improved sensitivity with accumulator
+                                    val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                                    val currentVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                                    
+                                    volumeAccumulator -= yDelta
+                                    val pxPerStep = size.height / (maxVol.coerceAtLeast(1) * 2f) // Full height = half volume range for comfortable control
+                                    
+                                    if (kotlin.math.abs(volumeAccumulator) >= pxPerStep) {
+                                        val steps = (volumeAccumulator / pxPerStep).toInt()
+                                        val newVol = (currentVol + steps).coerceIn(0, maxVol)
+                                        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newVol, 0)
+                                        volumePercent = if (maxVol > 0) newVol.toFloat() / maxVol else 0f
+                                        volumeAccumulator -= steps * pxPerStep
+                                    }
+                                    showVolumeIndicator = true
+                                }
+                            }
+                        )
+                    }
+            ) {
+                if (showControls) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.6f))
+                    ) {
+                        // Top controls (back, filename)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .align(Alignment.TopCenter)
+                                .padding(top = 32.dp, start = 16.dp, end = 16.dp, bottom = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(onClick = onNavigateBack) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                            }
+                            Text(
+                                text = videoPath.substringAfterLast("/"),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.White,
+                                maxLines = 1,
+                                modifier = Modifier.weight(1f).padding(start = 8.dp)
+                            )
+                            IconButton(onClick = { showInfoOverlay = !showInfoOverlay; if(showInfoOverlay) showControls = false }) {
+                                Icon(Icons.Filled.Info, contentDescription = "Info", tint = Color.White)
+                            }
+                            Box {
+                                IconButton(onClick = { showOptionsMenu = true }) {
+                                    Icon(Icons.Filled.MoreVert, contentDescription = "Options", tint = Color.White)
+                                }
+                                DropdownMenu(
+                                    expanded = showOptionsMenu,
+                                    onDismissRequest = { showOptionsMenu = false }
+                                ) {
+                                    DropdownMenuItem(text = { Text("Audio tracks") }, onClick = { showOptionsMenu = false; showAudioDialog = true; showControls = false })
+                                    DropdownMenuItem(text = { Text("Subtitle tracks") }, onClick = { showOptionsMenu = false; showSubtitleDialog = true; showControls = false })
+                                }
+                            }
+                        }
+
+                        // Center Play/Pause
+                        IconButton(
+                            onClick = {
+                                if (isPlaying) viewModel.player.pause() else viewModel.player.play()
                             },
                             modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 8.dp),
-                            colors = SliderDefaults.colors(
-                                thumbColor = MaterialTheme.colorScheme.primary,
-                                activeTrackColor = MaterialTheme.colorScheme.primary,
-                                inactiveTrackColor = Color.White.copy(alpha = 0.3f)
+                                .align(Alignment.Center)
+                                .size(80.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                                contentDescription = "Play/Pause",
+                                tint = Color.White,
+                                modifier = Modifier.fillMaxSize()
                             )
-                        )
-                        Text(
-                            text = if (showRemainingTime) "-${formatTime(duration - currentPosition)}" else formatTime(duration),
-                            color = Color.White,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.clickable { showRemainingTime = !showRemainingTime }
-                        )
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        IconButton(onClick = {
-                            resizeMode = when (resizeMode) {
-                                AspectRatioFrameLayout.RESIZE_MODE_FIT -> AspectRatioFrameLayout.RESIZE_MODE_FILL
-                                AspectRatioFrameLayout.RESIZE_MODE_FILL -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                                AspectRatioFrameLayout.RESIZE_MODE_ZOOM -> AspectRatioFrameLayout.RESIZE_MODE_FIT
-                                else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+                        }
+
+                        // Bottom controls
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .align(Alignment.BottomCenter)
+                                .padding(16.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = formatTime(currentPosition),
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Slider(
+                                    value = if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f,
+                                    onValueChange = { newVal ->
+                                        val target = (newVal * duration).toLong()
+                                        currentPosition = target
+                                        viewModel.player.seekTo(target)
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(horizontal = 8.dp),
+                                    colors = SliderDefaults.colors(
+                                        thumbColor = MaterialTheme.colorScheme.primary,
+                                        activeTrackColor = MaterialTheme.colorScheme.primary,
+                                        inactiveTrackColor = Color.White.copy(alpha = 0.3f)
+                                    )
+                                )
+                                Text(
+                                    text = if (showRemainingTime) "-${formatTime(duration - currentPosition)}" else formatTime(duration),
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.clickable { showRemainingTime = !showRemainingTime }
+                                )
                             }
-                        }) {
-                            Icon(Icons.Filled.AspectRatio, contentDescription = "Aspect Ratio", tint = Color.White)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End
+                            ) {
+                                IconButton(onClick = {
+                                    resizeMode = when (resizeMode) {
+                                        AspectRatioFrameLayout.RESIZE_MODE_FIT -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+                                        AspectRatioFrameLayout.RESIZE_MODE_FILL -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                                        AspectRatioFrameLayout.RESIZE_MODE_ZOOM -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+                                        else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+                                    }
+                                }) {
+                                    Icon(Icons.Filled.AspectRatio, contentDescription = "Aspect Ratio", tint = Color.White)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Brightness indicator overlay (left side)
+                AnimatedVisibility(
+                    visible = showBrightnessIndicator,
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .padding(start = 40.dp)
+                ) {
+                    AdjustmentIndicator(
+                        icon = when {
+                            brightnessPercent > 0.66f -> Icons.Filled.BrightnessHigh
+                            brightnessPercent > 0.33f -> Icons.Filled.BrightnessMedium
+                            else -> Icons.Filled.BrightnessLow
+                        },
+                        value = brightnessPercent,
+                        label = "${(brightnessPercent * 100).toInt()}%"
+                    )
+                }
+
+                // Volume indicator overlay (right side)
+                AnimatedVisibility(
+                    visible = showVolumeIndicator,
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 40.dp)
+                ) {
+                    AdjustmentIndicator(
+                        icon = when {
+                            volumePercent <= 0f -> Icons.AutoMirrored.Filled.VolumeOff
+                            volumePercent < 0.33f -> Icons.AutoMirrored.Filled.VolumeMute
+                            volumePercent < 0.66f -> Icons.AutoMirrored.Filled.VolumeDown
+                            else -> Icons.AutoMirrored.Filled.VolumeUp
+                        },
+                        value = volumePercent,
+                        label = "${(volumePercent * 100).toInt()}%"
+                    )
+                }
+
+                if (showInfoOverlay) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .fillMaxHeight()
+                            .fillMaxWidth(0.4f)
+                            .background(Color.Black.copy(alpha = 0.8f))
+                            .padding(16.dp)
+                    ) {
+                        val videoFormat = viewModel.player.videoFormat
+                        val audioFormat = viewModel.player.audioFormat
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            Text("Video Info", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("Path: ${videoPath.substringAfterLast("/")}", color = Color.White, style = MaterialTheme.typography.bodySmall)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("Resolution: ${videoFormat?.width ?: "?"} x ${videoFormat?.height ?: "?"}", color = Color.White, style = MaterialTheme.typography.bodySmall)
+                            Text("Video Codec: ${videoFormat?.sampleMimeType ?: "?"}", color = Color.White, style = MaterialTheme.typography.bodySmall)
+                            Text("Bitrate: ${videoFormat?.bitrate ?: "?"} bps", color = Color.White, style = MaterialTheme.typography.bodySmall)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("Audio Codec: ${audioFormat?.sampleMimeType ?: "?"}", color = Color.White, style = MaterialTheme.typography.bodySmall)
+                            Text("Audio Channels: ${audioFormat?.channelCount ?: "?"}", color = Color.White, style = MaterialTheme.typography.bodySmall)
+                            Text("Audio Sample Rate: ${audioFormat?.sampleRate ?: "?"} Hz", color = Color.White, style = MaterialTheme.typography.bodySmall)
+                            Spacer(modifier = Modifier.weight(1f))
+                            OutlinedButton(
+                                onClick = { showInfoOverlay = false },
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                            ) {
+                                Text("Close")
+                            }
                         }
                     }
                 }
             }
         }
-
-        // Brightness indicator overlay (left side)
-        AnimatedVisibility(
-            visible = showBrightnessIndicator,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .padding(start = 40.dp)
-        ) {
-            AdjustmentIndicator(
-                icon = when {
-                    brightnessPercent > 0.66f -> Icons.Filled.BrightnessHigh
-                    brightnessPercent > 0.33f -> Icons.Filled.BrightnessMedium
-                    else -> Icons.Filled.BrightnessLow
-                },
-                value = brightnessPercent,
-                label = "${(brightnessPercent * 100).toInt()}%"
-            )
-        }
-
-        // Volume indicator overlay (right side)
-        AnimatedVisibility(
-            visible = showVolumeIndicator,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(end = 40.dp)
-        ) {
-            AdjustmentIndicator(
-                icon = when {
-                    volumePercent <= 0f -> Icons.AutoMirrored.Filled.VolumeOff
-                    volumePercent < 0.33f -> Icons.AutoMirrored.Filled.VolumeMute
-                    volumePercent < 0.66f -> Icons.AutoMirrored.Filled.VolumeDown
-                    else -> Icons.AutoMirrored.Filled.VolumeUp
-                },
-                value = volumePercent,
-                label = "${(volumePercent * 100).toInt()}%"
-            )
-        }
-
-        if (showInfoOverlay) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .fillMaxHeight()
-                    .fillMaxWidth(0.4f)
-                    .background(Color.Black.copy(alpha = 0.8f))
-                    .padding(16.dp)
-            ) {
-                val videoFormat = viewModel.player.videoFormat
-                val audioFormat = viewModel.player.audioFormat
-                Column(modifier = Modifier.fillMaxSize()) {
-                    Text("Video Info", style = MaterialTheme.typography.titleMedium, color = Color.White)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Path: ${videoPath.substringAfterLast("/")}", color = Color.White, style = MaterialTheme.typography.bodySmall)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Resolution: ${videoFormat?.width ?: "?"} x ${videoFormat?.height ?: "?"}", color = Color.White, style = MaterialTheme.typography.bodySmall)
-                    Text("Video Codec: ${videoFormat?.sampleMimeType ?: "?"}", color = Color.White, style = MaterialTheme.typography.bodySmall)
-                    Text("Bitrate: ${videoFormat?.bitrate ?: "?"} bps", color = Color.White, style = MaterialTheme.typography.bodySmall)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Audio Codec: ${audioFormat?.sampleMimeType ?: "?"}", color = Color.White, style = MaterialTheme.typography.bodySmall)
-                    Text("Audio Channels: ${audioFormat?.channelCount ?: "?"}", color = Color.White, style = MaterialTheme.typography.bodySmall)
-                    Text("Audio Sample Rate: ${audioFormat?.sampleRate ?: "?"} Hz", color = Color.White, style = MaterialTheme.typography.bodySmall)
-                    Spacer(modifier = Modifier.weight(1f))
-                    OutlinedButton(
-                        onClick = { showInfoOverlay = false },
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
-                    ) {
-                        Text("Close")
-                    }
-                }
-            }
-        }
-    }
 
     if (showAudioDialog) {
         val context = LocalContext.current
@@ -545,11 +571,10 @@ fun PlayerScreen(
         )
     }
 
-    BackHandler {
-        onNavigateBack()
     }
 }
 
+@UnstableApi
 @Composable
 fun TrackSelectionDialog(
     viewModel: PlayerViewModel,

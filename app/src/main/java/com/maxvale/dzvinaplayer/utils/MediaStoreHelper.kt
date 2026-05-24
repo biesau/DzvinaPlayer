@@ -82,4 +82,35 @@ object MediaStoreHelper {
         
         return result.sortedWith(compareBy({ !it.isDirectory }, { it.name.lowercase() }))
     }
+
+    fun deleteFile(context: Context, file: File): Boolean {
+        if (file.isDirectory) {
+            return file.deleteRecursively()
+        }
+
+        // Try to delete via MediaStore first to keep DB in sync
+        val contentResolver = context.contentResolver
+        val projection = arrayOf(MediaStore.MediaColumns._ID)
+        val selection = "${MediaStore.MediaColumns.DATA} = ?"
+        val selectionArgs = arrayOf(file.absolutePath)
+
+        val uris = listOf(
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+        )
+
+        uris.forEach { uri ->
+            contentResolver.query(uri, projection, selection, selectionArgs, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID))
+                    val itemUri = android.content.ContentUris.withAppendedId(uri, id)
+                    val deleted = contentResolver.delete(itemUri, null, null)
+                    if (deleted > 0) return true
+                }
+            }
+        }
+
+        // Fallback to direct file deletion
+        return file.delete()
+    }
 }

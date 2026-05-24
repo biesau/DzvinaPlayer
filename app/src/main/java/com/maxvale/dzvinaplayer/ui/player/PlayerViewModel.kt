@@ -5,6 +5,10 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Tracks
+import androidx.media3.common.C
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.maxvale.dzvinaplayer.data.AppDatabase
 import com.maxvale.dzvinaplayer.data.RecentVideo
@@ -116,6 +120,55 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
             player.seekTo(pos)
             player.prepare()
+            
+            // Restore track selection from recent
+            if (recent != null && externalAudioUri == null) {
+                player.addListener(object : Player.Listener {
+                    override fun onTracksChanged(tracks: Tracks) {
+                        val audioGroups = tracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO }
+                        val textGroups = tracks.groups.filter { it.type == C.TRACK_TYPE_TEXT }
+                        
+                        var newParams = player.trackSelectionParameters.buildUpon()
+                        
+                        // Restore Audio
+                        if (recent.audioTrackIndex != -1) {
+                            var flatAudioIndex = 0
+                            audio_outer@for (group in audioGroups) {
+                                for (i in 0 until group.length) {
+                                    if (flatAudioIndex == recent.audioTrackIndex) {
+                                        newParams = newParams.setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, i))
+                                        break@audio_outer
+                                    }
+                                    flatAudioIndex++
+                                }
+                            }
+                        }
+                        
+                        // Restore Subtitles
+                        if (recent.subtitleTrackIndex != -1) {
+                            var flatTextIndex = 0
+                            text_outer@for (group in textGroups) {
+                                for (i in 0 until group.length) {
+                                    if (flatTextIndex == recent.subtitleTrackIndex) {
+                                        newParams = newParams.setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, i))
+                                            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                                        break@text_outer
+                                    }
+                                    flatTextIndex++
+                                }
+                            }
+                        } else {
+                            // If no subtitle was selected, disable them
+                            newParams = newParams.clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                        }
+                        
+                        player.trackSelectionParameters = newParams.build()
+                        player.removeListener(this)
+                    }
+                })
+            }
+
             if (wasPlaying) {
                 player.play()
             }
@@ -126,6 +179,36 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         val path = currentPath ?: return
         val pos = player.currentPosition.coerceAtLeast(0L)
         val dur = player.duration.coerceAtLeast(0L)
+        
+        // Find selected track indices
+        val currentTracks = player.currentTracks
+        
+        var selectedAudioIndex = -1
+        val audioGroups = currentTracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO }
+        var flatAudioIndex = 0
+        audio_outer@for (group in audioGroups) {
+            for (i in 0 until group.length) {
+                if (group.isTrackSelected(i)) {
+                    selectedAudioIndex = flatAudioIndex
+                    break@audio_outer
+                }
+                flatAudioIndex++
+            }
+        }
+        
+        var selectedSubtitleIndex = -1
+        val textGroups = currentTracks.groups.filter { it.type == C.TRACK_TYPE_TEXT }
+        var flatTextIndex = 0
+        text_outer@for (group in textGroups) {
+            for (i in 0 until group.length) {
+                if (group.isTrackSelected(i)) {
+                    selectedSubtitleIndex = flatTextIndex
+                    break@text_outer
+                }
+                flatTextIndex++
+            }
+        }
+
         if (dur > 0) {
             viewModelScope.launch {
                 val name = path.substringAfterLast("/")
@@ -134,7 +217,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                         path = path,
                         name = name,
                         lastPositionMs = pos,
-                        durationMs = dur
+                        durationMs = dur,
+                        audioTrackIndex = selectedAudioIndex,
+                        subtitleTrackIndex = selectedSubtitleIndex,
+                        lastWatchedAt = System.currentTimeMillis()
                     )
                 )
             }
