@@ -101,9 +101,6 @@ fun LocalFilesScreen(viewModel: MainViewModel) {
     ) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) {
             if (selectionMode && selectedFiles.isNotEmpty()) {
-                selectedFiles.forEach { file ->
-                    try { com.maxvale.dzvinaplayer.utils.MediaStoreHelper.deleteFile(context, file) } catch (e: Exception) {}
-                }
                 files = getFiles(context, currentDir)
                 selectionMode = false
                 selectedFiles.clear()
@@ -173,26 +170,45 @@ fun LocalFilesScreen(viewModel: MainViewModel) {
                         }
 
                         IconButton(onClick = {
-                            var securityException: android.app.RecoverableSecurityException? = null
+                            val filesToRequest = mutableListOf<File>()
                             selectedFiles.forEach { file ->
                                 try {
                                     com.maxvale.dzvinaplayer.utils.MediaStoreHelper.deleteFile(context, file)
                                 } catch (e: Exception) {
                                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q && e is android.app.RecoverableSecurityException) {
-                                        securityException = e
+                                        filesToRequest.add(file)
                                     }
                                 }
                             }
                             
-                            if (securityException != null) {
-                                val intentSender = securityException!!.userAction.actionIntent.intentSender
-                                deleteLauncher.launch(androidx.activity.result.IntentSenderRequest.Builder(intentSender).build())
+                            if (filesToRequest.isNotEmpty()) {
+                                val uris = filesToRequest.mapNotNull {
+                                    com.maxvale.dzvinaplayer.utils.MediaStoreHelper.getUriForFile(context, it)
+                                }
+                                if (uris.isNotEmpty()) {
+                                    try {
+                                        val pendingIntent = android.provider.MediaStore.createDeleteRequest(
+                                            context.contentResolver,
+                                            uris
+                                        )
+                                        deleteLauncher.launch(
+                                            androidx.activity.result.IntentSenderRequest.Builder(pendingIntent.intentSender).build()
+                                        )
+                                    } catch (e: Exception) {
+                                        files = getFiles(context, currentDir)
+                                        selectionMode = false
+                                        selectedFiles.clear()
+                                    }
+                                } else {
+                                    files = getFiles(context, currentDir)
+                                    selectionMode = false
+                                    selectedFiles.clear()
+                                }
                             } else {
                                 files = getFiles(context, currentDir)
+                                selectionMode = false
+                                selectedFiles.clear()
                             }
-                            
-                            selectionMode = false
-                            selectedFiles.clear()
                         }) {
                             Icon(Icons.Filled.Delete, contentDescription = "Delete")
                         }

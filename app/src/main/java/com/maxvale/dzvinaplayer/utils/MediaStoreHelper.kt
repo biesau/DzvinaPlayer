@@ -83,6 +83,29 @@ object MediaStoreHelper {
         return result.sortedWith(compareBy({ !it.isDirectory }, { it.name.lowercase() }))
     }
 
+    fun getUriForFile(context: Context, file: File): android.net.Uri? {
+        if (file.isDirectory) return null
+        val contentResolver = context.contentResolver
+        val projection = arrayOf(MediaStore.MediaColumns._ID)
+        val selection = "${MediaStore.MediaColumns.DATA} = ?"
+        val selectionArgs = arrayOf(file.absolutePath)
+
+        val uris = listOf(
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+        )
+
+        uris.forEach { uri ->
+            contentResolver.query(uri, projection, selection, selectionArgs, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID))
+                    return android.content.ContentUris.withAppendedId(uri, id)
+                }
+            }
+        }
+        return null
+    }
+
     fun deleteFile(context: Context, file: File): Boolean {
         if (file.isDirectory) {
             return file.deleteRecursively()
@@ -114,3 +137,4 @@ object MediaStoreHelper {
         return file.delete()
     }
 }
+
