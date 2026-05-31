@@ -1,7 +1,7 @@
 package com.maxvale.dzvinaplayer.ui.screens
 
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.background
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -11,9 +11,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -22,9 +22,10 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.maxvale.dzvinaplayer.ui.navigation.Screen
 import com.maxvale.dzvinaplayer.ui.navigation.bottomNavigationItems
+import com.maxvale.dzvinaplayer.ui.player.PlayerScreen
+import com.maxvale.dzvinaplayer.ui.player.PlayerViewModel
 import com.maxvale.dzvinaplayer.ui.theme.AccentYellow
 import com.maxvale.dzvinaplayer.ui.theme.PrimaryDarkRed
-import com.maxvale.dzvinaplayer.ui.theme.SurfaceDark
 import com.maxvale.dzvinaplayer.ui.theme.White
 
 @Composable
@@ -36,6 +37,7 @@ fun MainScreen(viewModel: MainViewModel) {
     val currentRoute = navBackStackEntry?.destination?.route
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             if (currentRoute?.startsWith("player") != true) {
                 BottomNavigationBar(navController = navController)
@@ -67,8 +69,8 @@ fun MainScreen(viewModel: MainViewModel) {
             ) { backStackEntry ->
                 val videoPath = backStackEntry.arguments?.getString("videoPath")
                 if (videoPath != null) {
-                    val playerViewModel: com.maxvale.dzvinaplayer.ui.player.PlayerViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
-                    com.maxvale.dzvinaplayer.ui.player.PlayerScreen(
+                    val playerViewModel: PlayerViewModel = viewModel()
+                    PlayerScreen(
                         videoPath = videoPath,
                         viewModel = playerViewModel,
                         onNavigateBack = { navController.popBackStack() }
@@ -86,7 +88,7 @@ fun BottomNavigationBar(navController: NavHostController) {
 
     NavigationBar(
         containerColor = PrimaryDarkRed,
-        tonalElevation = 8.dp
+        tonalElevation = 0.dp
     ) {
         bottomNavigationItems.forEach { screen ->
             NavigationBarItem(

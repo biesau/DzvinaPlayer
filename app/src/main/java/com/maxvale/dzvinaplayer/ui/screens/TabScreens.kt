@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -29,7 +28,6 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.DropdownMenu
@@ -54,12 +52,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
-import androidx.activity.result.IntentSenderRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.maxvale.dzvinaplayer.ui.navigation.Screen
+import com.maxvale.dzvinaplayer.ui.theme.PrimaryDarkRed
 import java.io.File
 
 private const val buyMeACoffee = "https://buymeacoffee.com/zmicier"
@@ -130,154 +126,53 @@ fun LocalFilesScreen(viewModel: MainViewModel) {
     }
 
     Scaffold(
+        containerColor = PrimaryDarkRed,
         topBar = {
-            if (selectionMode) {
-                TopAppBar(
-                    title = { Text("${selectedFiles.size} selected") },
-                    modifier = Modifier.background(
-                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                            colors = listOf(
-                                com.maxvale.dzvinaplayer.ui.theme.SurfaceDark,
-                                com.maxvale.dzvinaplayer.ui.theme.PrimaryDarkRed.copy(alpha = 0.5f)
-                            )
-                        )
-                    ),
-                    windowInsets = WindowInsets(0, 0, 0, 0),
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.secondary,
-                        titleContentColor = MaterialTheme.colorScheme.onSecondary,
-                        actionIconContentColor = MaterialTheme.colorScheme.onSecondary,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onSecondary
-                    ),
-                    navigationIcon = {
-                        IconButton(onClick = {
-                            selectionMode = false
-                            selectedFiles.clear()
-                        }) {
-                            Icon(Icons.Filled.Close, contentDescription = "Close")
+            TopAppBar(
+                title = { Text(if (selectionMode) "${selectedFiles.size} selected" else if (currentDir == internalStorage) "Internal Storage" else currentDir.name) },
+                navigationIcon = {
+                    if (selectionMode) {
+                        IconButton(onClick = { selectionMode = false; selectedFiles.clear() }) {
+                            Icon(Icons.Default.Close, contentDescription = "Clear selection")
                         }
-                    },
-                    actions = {
-                        val canFavorite = selectedFiles.all { it.isDirectory }
-                        if (canFavorite && selectedFiles.isNotEmpty()) {
-                            IconButton(onClick = {
-                                selectedFiles.forEach { viewModel.addFavorite(it.absolutePath, it.name) }
-                                selectionMode = false
-                                selectedFiles.clear()
-                            }) {
-                                Icon(Icons.Filled.Star, contentDescription = "Favorite")
-                            }
+                    } else if (currentDir != internalStorage) {
+                        IconButton(onClick = { viewModel.setCurrentDir(currentDir.parentFile!!) }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
-
+                    }
+                },
+                actions = {
+                    if (selectionMode) {
                         IconButton(onClick = {
-                            val filesToRequest = mutableListOf<File>()
                             selectedFiles.forEach { file ->
                                 try {
                                     com.maxvale.dzvinaplayer.utils.MediaStoreHelper.deleteFile(context, file)
-                                } catch (e: Exception) {
-                                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q && e is android.app.RecoverableSecurityException) {
-                                        filesToRequest.add(file)
-                                    }
-                                }
+                                } catch (e: Exception) {}
                             }
-                            
-                            if (filesToRequest.isNotEmpty()) {
-                                val uris = filesToRequest.mapNotNull {
-                                    com.maxvale.dzvinaplayer.utils.MediaStoreHelper.getUriForFile(context, it)
-                                }
-                                if (uris.isNotEmpty()) {
-                                    try {
-                                        val pendingIntent = android.provider.MediaStore.createDeleteRequest(
-                                            context.contentResolver,
-                                            uris
-                                        )
-                                        deleteLauncher.launch(
-                                            androidx.activity.result.IntentSenderRequest.Builder(pendingIntent.intentSender).build()
-                                        )
-                                    } catch (e: Exception) {
-                                        files = getFiles(context, currentDir)
-                                        selectionMode = false
-                                        selectedFiles.clear()
-                                    }
-                                } else {
-                                    files = getFiles(context, currentDir)
-                                    selectionMode = false
-                                    selectedFiles.clear()
-                                }
-                            } else {
-                                files = getFiles(context, currentDir)
-                                selectionMode = false
-                                selectedFiles.clear()
-                            }
+                            files = getFiles(context, currentDir)
+                            selectionMode = false
+                            selectedFiles.clear()
                         }) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Delete")
+                            Icon(Icons.Default.Delete, contentDescription = "Delete selected")
                         }
                     }
-                )
-            } else {
-                TopAppBar(
-                    title = { Text(currentDir.name.ifEmpty { "Internal Storage" }) },
-                    modifier = Modifier.background(
-                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                            colors = listOf(
-                                com.maxvale.dzvinaplayer.ui.theme.SurfaceDark,
-                                com.maxvale.dzvinaplayer.ui.theme.PrimaryDarkRed.copy(alpha = 0.5f)
-                            )
-                        )
-                    ),
-                    windowInsets = WindowInsets(0, 0, 0, 0),
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = androidx.compose.ui.graphics.Color.Transparent,
-                        titleContentColor = MaterialTheme.colorScheme.onPrimary
-                    ),
-                    navigationIcon = {
-                        IconButton(onClick = {
-                            if (currentDir != internalStorage && currentDir.parentFile != null) {
-                                viewModel.setCurrentDir(currentDir.parentFile!!)
-                            } else {
-                                viewModel.setBrowseScope(BrowseScope.HOME)
-                            }
-                        }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                        }
-                    },
-                    actions = {
-                        var expanded by remember { mutableStateOf(false) }
-                        IconButton(onClick = { expanded = true }) {
-                            Icon(Icons.Filled.MoreVert, contentDescription = "Options")
-                        }
-                        DropdownMenu(
-                            expanded = expanded,
-                            onDismissRequest = { expanded = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Buy me a coffee") },
-                                onClick = {
-                                    expanded = false
-                                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW,
-                                        buyMeACoffee.toUri())
-                                    context.startActivity(intent)
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("About") },
-                                onClick = {
-                                    expanded = false
-                                    viewModel.navController?.navigate(Screen.About.route)
-                                }
-                            )
-                        }
-                    }
-                )
-            }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White,
+                    actionIconContentColor = Color.White
+                ),
+                windowInsets = TopAppBarDefaults.windowInsets
+            )
         }
     ) { innerPadding ->
-        val favorites by viewModel.favorites.collectAsState()
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-        ) {
+        Box(Modifier.fillMaxSize().padding(innerPadding).background(MaterialTheme.colorScheme.background)) {
+            val favorites by viewModel.favorites.collectAsState()
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+            ) {
             if (currentDir != internalStorage && currentDir.parentFile != null) {
                 item {
                     FileListItem(file = currentDir.parentFile!!, isParent = true, selected = false, onClick = {
@@ -335,6 +230,7 @@ fun LocalFilesScreen(viewModel: MainViewModel) {
             }
         }
     }
+}
 }
 
 fun getFiles(context: android.content.Context, dir: File): List<File> {
@@ -408,67 +304,33 @@ fun FileListItem(
 @Composable
 fun SourcesHomeScreen(viewModel: MainViewModel) {
     Scaffold(
+        containerColor = PrimaryDarkRed,
         topBar = {
             TopAppBar(
                 title = { Text("Sources") },
-                modifier = Modifier.background(
-                    brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                        colors = listOf(
-                            com.maxvale.dzvinaplayer.ui.theme.SurfaceDark,
-                            com.maxvale.dzvinaplayer.ui.theme.PrimaryDarkRed.copy(alpha = 0.5f)
-                        )
-                    )
-                ),
-                windowInsets = WindowInsets(0, 0, 0, 0),
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = androidx.compose.ui.graphics.Color.Transparent,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary
+                    containerColor = Color.Transparent,
+                    titleContentColor = Color.White
                 ),
-                actions = {
-                    var expanded by remember { mutableStateOf(false) }
-                    val context = androidx.compose.ui.platform.LocalContext.current
-                    IconButton(onClick = { expanded = true }) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = "Options", tint = Color.White)
-                    }
-                    DropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Buy me a coffee") },
-                            onClick = {
-                                expanded = false
-                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW,
-                                    buyMeACoffee.toUri())
-                                context.startActivity(intent)
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("About") },
-                            onClick = {
-                                expanded = false
-                                viewModel.navController?.navigate(Screen.About.route)
-                            }
-                        )
-                    }
-                }
+                windowInsets = TopAppBarDefaults.windowInsets
             )
         }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-        ) {
-            ListItemRow(title = "Local Storage", icon = Icons.Filled.Storage, onClick = {
-                viewModel.setCurrentDir(Environment.getExternalStorageDirectory())
-                viewModel.setBrowseScope(BrowseScope.LOCAL)
-            })
-            HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
-            ListItemRow(title = "FTP Servers", icon = Icons.Filled.Cloud, onClick = {
-                viewModel.setBrowseScope(BrowseScope.FTP_ROOT)
-            })
-            HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
+        Box(Modifier.fillMaxSize().padding(innerPadding).background(MaterialTheme.colorScheme.background)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+            ) {
+                ListItemRow(title = "Local Storage", icon = Icons.Filled.Storage, onClick = {
+                    viewModel.setCurrentDir(Environment.getExternalStorageDirectory())
+                    viewModel.setBrowseScope(BrowseScope.LOCAL)
+                })
+                HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
+                ListItemRow(title = "FTP Servers", icon = Icons.Filled.Cloud, onClick = {
+                    viewModel.setBrowseScope(BrowseScope.FTP_ROOT)
+                })
+                HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
+            }
         }
     }
 }
@@ -512,72 +374,46 @@ fun FavoritesScreen(viewModel: MainViewModel) {
     }
 
     Scaffold(
+        containerColor = PrimaryDarkRed,
         topBar = {
-            if (selectionMode) {
-                TopAppBar(
-                    title = { Text("${selectedFavorites.size} selected") },
-                    modifier = Modifier.background(
-                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                            colors = listOf(
-                                com.maxvale.dzvinaplayer.ui.theme.SurfaceDark,
-                                com.maxvale.dzvinaplayer.ui.theme.PrimaryDarkRed.copy(alpha = 0.5f)
-                            )
-                        )
-                    ),
-                    windowInsets = WindowInsets(0, 0, 0, 0),
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.secondary,
-                        titleContentColor = MaterialTheme.colorScheme.onSecondary,
-                        actionIconContentColor = MaterialTheme.colorScheme.onSecondary,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onSecondary
-                    ),
-                    navigationIcon = {
-                        IconButton(onClick = {
-                            selectionMode = false
-                            selectedFavorites.clear()
-                        }) {
-                            Icon(Icons.Filled.Close, contentDescription = "Close")
+            TopAppBar(
+                title = { Text(if (selectionMode) "${selectedFavorites.size} selected" else "Favorites") },
+                navigationIcon = {
+                    if (selectionMode) {
+                        IconButton(onClick = { selectionMode = false; selectedFavorites.clear() }) {
+                            Icon(Icons.Default.Close, contentDescription = "Clear selection")
                         }
-                    },
-                    actions = {
+                    }
+                },
+                actions = {
+                    if (selectionMode) {
                         IconButton(onClick = {
                             selectedFavorites.forEach { viewModel.removeFavorite(it) }
                             selectionMode = false
                             selectedFavorites.clear()
                         }) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Remove")
+                            Icon(Icons.Default.Delete, contentDescription = "Remove selected")
                         }
                     }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White,
+                    actionIconContentColor = Color.White
                 )
-            } else {
-                TopAppBar(
-                    title = { Text("Favorites") },
-                    modifier = Modifier.background(
-                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                            colors = listOf(
-                                com.maxvale.dzvinaplayer.ui.theme.SurfaceDark,
-                                com.maxvale.dzvinaplayer.ui.theme.PrimaryDarkRed.copy(alpha = 0.5f)
-                            )
-                        )
-                    ),
-                    windowInsets = WindowInsets(0, 0, 0, 0),
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = androidx.compose.ui.graphics.Color.Transparent,
-                        titleContentColor = MaterialTheme.colorScheme.onPrimary
-                    )
-                )
-            }
+            )
         }
     ) { innerPadding ->
+        Box(Modifier.fillMaxSize().padding(innerPadding).background(MaterialTheme.colorScheme.background)) {
         if (favorites.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("No favorite locations yet.", style = MaterialTheme.typography.bodyLarge)
             }
         } else {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding)
             ) {
                 items(favorites) { favorite ->
                     val isSelected = selectedFavorites.contains(favorite)
@@ -632,6 +468,7 @@ fun FavoritesScreen(viewModel: MainViewModel) {
                 }
             }
         }
+        }
     }
 }
 
@@ -643,72 +480,46 @@ fun RecentScreen(viewModel: MainViewModel) {
     val selectedRecents = remember { mutableStateListOf<com.maxvale.dzvinaplayer.data.RecentVideo>() }
 
     Scaffold(
+        containerColor = PrimaryDarkRed,
         topBar = {
-            if (selectionMode) {
-                TopAppBar(
-                    title = { Text("${selectedRecents.size} selected") },
-                    modifier = Modifier.background(
-                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                            colors = listOf(
-                                com.maxvale.dzvinaplayer.ui.theme.SurfaceDark,
-                                com.maxvale.dzvinaplayer.ui.theme.PrimaryDarkRed.copy(alpha = 0.5f)
-                            )
-                        )
-                    ),
-                    windowInsets = WindowInsets(0, 0, 0, 0),
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.secondary,
-                        titleContentColor = MaterialTheme.colorScheme.onSecondary,
-                        actionIconContentColor = MaterialTheme.colorScheme.onSecondary,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onSecondary
-                    ),
-                    navigationIcon = {
-                        IconButton(onClick = {
-                            selectionMode = false
-                            selectedRecents.clear()
-                        }) {
-                            Icon(Icons.Filled.Close, contentDescription = "Close")
+            TopAppBar(
+                title = { Text(if (selectionMode) "${selectedRecents.size} selected" else "Recent") },
+                navigationIcon = {
+                    if (selectionMode) {
+                        IconButton(onClick = { selectionMode = false; selectedRecents.clear() }) {
+                            Icon(Icons.Default.Close, contentDescription = "Clear selection")
                         }
-                    },
-                    actions = {
+                    }
+                },
+                actions = {
+                    if (selectionMode) {
                         IconButton(onClick = {
                             selectedRecents.forEach { viewModel.removeRecent(it) }
                             selectionMode = false
                             selectedRecents.clear()
                         }) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Remove")
+                            Icon(Icons.Default.Delete, contentDescription = "Remove selected")
                         }
                     }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White,
+                    actionIconContentColor = Color.White
                 )
-            } else {
-                TopAppBar(
-                    title = { Text("Recent Watched") },
-                    modifier = Modifier.background(
-                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                            colors = listOf(
-                                com.maxvale.dzvinaplayer.ui.theme.SurfaceDark,
-                                com.maxvale.dzvinaplayer.ui.theme.PrimaryDarkRed.copy(alpha = 0.5f)
-                            )
-                        )
-                    ),
-                    windowInsets = WindowInsets(0, 0, 0, 0),
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = androidx.compose.ui.graphics.Color.Transparent,
-                        titleContentColor = MaterialTheme.colorScheme.onPrimary
-                    )
-                )
-            }
+            )
         }
     ) { innerPadding ->
+        Box(Modifier.fillMaxSize().padding(innerPadding).background(MaterialTheme.colorScheme.background)) {
         if (recents.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("No recent videos.", style = MaterialTheme.typography.bodyLarge)
             }
         } else {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding)
             ) {
                 items(recents) { recent ->
                     val isSelected = selectedRecents.contains(recent)
@@ -751,6 +562,7 @@ fun RecentScreen(viewModel: MainViewModel) {
                 }
             }
         }
+        }
     }
 }
 
@@ -765,27 +577,21 @@ fun FtpServersScreen(viewModel: MainViewModel) {
     }
 
     Scaffold(
+        containerColor = PrimaryDarkRed,
         topBar = {
             TopAppBar(
                 title = { Text("FTP Servers") },
-                modifier = Modifier.background(
-                    brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                        colors = listOf(
-                            com.maxvale.dzvinaplayer.ui.theme.SurfaceDark,
-                            com.maxvale.dzvinaplayer.ui.theme.PrimaryDarkRed.copy(alpha = 0.5f)
-                        )
-                    )
-                ),
-                windowInsets = WindowInsets(0, 0, 0, 0),
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = androidx.compose.ui.graphics.Color.Transparent,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary
-                ),
                 navigationIcon = {
                     IconButton(onClick = { viewModel.setBrowseScope(BrowseScope.HOME) }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onPrimary)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White,
+                    actionIconContentColor = Color.White
+                )
             )
         },
         floatingActionButton = {
@@ -794,12 +600,13 @@ fun FtpServersScreen(viewModel: MainViewModel) {
             }
         }
     ) { innerPadding ->
+        Box(Modifier.fillMaxSize().padding(innerPadding).background(MaterialTheme.colorScheme.background)) {
         if (servers.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("No FTP servers configured", style = MaterialTheme.typography.bodyLarge)
             }
         } else {
-            LazyColumn(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(servers) { server ->
                     ListItemRow(title = server.name, icon = Icons.Filled.Cloud, onClick = {
                         viewModel.connectToFtp(server)
@@ -849,6 +656,7 @@ fun FtpServersScreen(viewModel: MainViewModel) {
                 }
             )
         }
+        }
     }
 }
 
@@ -863,31 +671,26 @@ fun FtpBrowseScreen(viewModel: MainViewModel) {
     }
 
     Scaffold(
+        containerColor = PrimaryDarkRed,
         topBar = {
             TopAppBar(
-                title = { Text(if (currentPath == "/") "FTP Server" else currentPath.substringAfterLast('/')) },
-                modifier = Modifier.background(
-                    brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                        colors = listOf(
-                            com.maxvale.dzvinaplayer.ui.theme.SurfaceDark,
-                            com.maxvale.dzvinaplayer.ui.theme.PrimaryDarkRed.copy(alpha = 0.5f)
-                        )
-                    )
-                ),
-                windowInsets = WindowInsets(0, 0, 0, 0),
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = androidx.compose.ui.graphics.Color.Transparent,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary
-                ),
+                title = { Text(currentPath) },
                 navigationIcon = {
                     IconButton(onClick = { viewModel.ftpGoUp() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onPrimary)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White,
+                    actionIconContentColor = Color.White
+                )
             )
         }
     ) { innerPadding ->
-        LazyColumn(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+        Box(Modifier.fillMaxSize().padding(innerPadding).background(MaterialTheme.colorScheme.background)) {
+        LazyColumn(modifier = Modifier.fillMaxSize()) {
             items(files) { file ->
                 val isDir = file.isDirectory
                 val icon = if (isDir) Icons.Filled.Folder else Icons.AutoMirrored.Filled.InsertDriveFile
@@ -913,6 +716,7 @@ fun FtpBrowseScreen(viewModel: MainViewModel) {
                 HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
             }
         }
+        }
     }
 }
 
@@ -920,34 +724,28 @@ fun FtpBrowseScreen(viewModel: MainViewModel) {
 @Composable
 fun AboutScreen(onNavigateBack: () -> Unit) {
     Scaffold(
+        containerColor = PrimaryDarkRed,
         topBar = {
             TopAppBar(
                 title = { Text("About") },
-                modifier = Modifier.background(
-                    brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                        colors = listOf(
-                            com.maxvale.dzvinaplayer.ui.theme.SurfaceDark,
-                            com.maxvale.dzvinaplayer.ui.theme.PrimaryDarkRed.copy(alpha = 0.5f)
-                        )
-                    )
-                ),
-                windowInsets = WindowInsets(0, 0, 0, 0),
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = androidx.compose.ui.graphics.Color.Transparent,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary
-                ),
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onPrimary)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White,
+                    actionIconContentColor = Color.White
+                )
             )
         }
     ) { innerPadding ->
+        Box(Modifier.fillMaxSize().padding(innerPadding).background(MaterialTheme.colorScheme.background)) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -959,6 +757,7 @@ fun AboutScreen(onNavigateBack: () -> Unit) {
             Text("Created by Źmicier Biesau", style = MaterialTheme.typography.bodyLarge)
             Spacer(modifier = Modifier.height(32.dp))
             Text("A simple, beautiful video player for Android.", style = MaterialTheme.typography.bodyMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        }
         }
     }
 }

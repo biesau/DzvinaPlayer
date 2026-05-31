@@ -10,6 +10,7 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -21,13 +22,13 @@ private val DarkColorScheme = darkColorScheme(
     tertiary = White,
     background = Black,
     surface = SurfaceDark,
-    surfaceVariant = SurfaceVariantDark,
+//    surfaceVariant = SurfaceVariantDark,
     onPrimary = White,
     onSecondary = Black,
     onTertiary = Black,
     onBackground = White,
     onSurface = White,
-    onSurfaceVariant = White
+//    onSurfaceVariant = White
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -36,13 +37,14 @@ private val LightColorScheme = lightColorScheme(
     tertiary = Black,
     background = White,
     surface = White,
-    surfaceVariant = White,
+//    surfaceVariant = Color(0xFFF2F2F2),
     onPrimary = White,
     onSecondary = White,
     onTertiary = White,
     onBackground = Black,
     onSurface = Black,
-    onSurfaceVariant = Black
+//    onSurfaceVariant = Black,
+//    outlineVariant = Color(0xFFE0E0E0)
 )
 
 @Composable
@@ -66,8 +68,9 @@ fun DzvinaplayerTheme(
     if (!view.isInEditMode && useSystemUI) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.primary.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
+            WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = false
         }
     }
 
