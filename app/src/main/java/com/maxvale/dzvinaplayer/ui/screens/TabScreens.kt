@@ -54,8 +54,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import com.maxvale.dzvinaplayer.data.FavoriteLocation
+import com.maxvale.dzvinaplayer.data.FtpServer
+import com.maxvale.dzvinaplayer.data.RecentVideo
 import com.maxvale.dzvinaplayer.ui.navigation.Screen
 import com.maxvale.dzvinaplayer.ui.theme.PrimaryDarkRed
+import com.maxvale.dzvinaplayer.utils.MediaStoreHelper.deleteFile
+import com.maxvale.dzvinaplayer.utils.MediaStoreHelper.getMediaInFolder
 import java.io.File
 
 private const val buyMeACoffee = "https://buymeacoffee.com/zmicier"
@@ -102,7 +107,7 @@ fun LocalFilesScreen(viewModel: MainViewModel) {
                 selectedFiles.clear()
             } else if (fileToDelete != null) {
                 try {
-                    com.maxvale.dzvinaplayer.utils.MediaStoreHelper.deleteFile(context, fileToDelete!!)
+                    deleteFile(context, fileToDelete!!)
                 } catch (e: Exception) {}
                 files = getFiles(context, currentDir)
                 fileToDelete = null
@@ -144,14 +149,62 @@ fun LocalFilesScreen(viewModel: MainViewModel) {
                 actions = {
                     if (selectionMode) {
                         IconButton(onClick = {
-                            selectedFiles.forEach { file ->
+                            val folders = selectedFiles.filter { it.isDirectory }
+                            val individualFiles = selectedFiles.filter { !it.isDirectory }
+
+                            // Delete folders first (usually works via File API if within app's reach or if simple)
+                            folders.forEach { folder ->
                                 try {
-                                    com.maxvale.dzvinaplayer.utils.MediaStoreHelper.deleteFile(context, file)
+                                    deleteFile(context, folder)
                                 } catch (e: Exception) {}
                             }
-                            files = getFiles(context, currentDir)
-                            selectionMode = false
-                            selectedFiles.clear()
+
+                            if (individualFiles.isNotEmpty() && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                                val uris = individualFiles.mapNotNull { file ->
+                                    val contentUri = when (file.extension.lowercase()) {
+                                        "mp3", "flac", "wav" -> android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+                                        else -> android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                                    }
+                                    val projection = arrayOf(android.provider.MediaStore.MediaColumns._ID)
+                                    val selection = "${android.provider.MediaStore.MediaColumns.DATA} = ?"
+                                    val selectionArgs = arrayOf(file.absolutePath)
+                                    context.contentResolver.query(contentUri, projection, selection, selectionArgs, null)?.use { cursor ->
+                                        if (cursor.moveToFirst()) {
+                                            val id = cursor.getLong(cursor.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns._ID))
+                                            android.content.ContentUris.withAppendedId(contentUri, id)
+                                        } else null
+                                    }
+                                }
+                                if (uris.isNotEmpty()) {
+                                    val pendingIntent = android.provider.MediaStore.createDeleteRequest(context.contentResolver, uris)
+                                    deleteLauncher.launch(androidx.activity.result.IntentSenderRequest.Builder(pendingIntent.intentSender).build())
+                                } else {
+                                    // Fallback for files not in MediaStore
+                                    individualFiles.forEach { file ->
+                                        try {
+                                            deleteFile(context, file)
+                                        } catch (e: Exception) {}
+                                    }
+                                    files = getFiles(context, currentDir)
+                                    selectionMode = false
+                                    selectedFiles.clear()
+                                }
+                            } else {
+                                individualFiles.forEach { file ->
+                                    try {
+                                        deleteFile(context, file)
+                                    } catch (e: Exception) {
+                                        if (e is android.app.RecoverableSecurityException) {
+                                            fileToDelete = file
+                                            val intentSender = e.userAction.actionIntent.intentSender
+                                            deleteLauncher.launch(androidx.activity.result.IntentSenderRequest.Builder(intentSender).build())
+                                        }
+                                    }
+                                }
+                                files = getFiles(context, currentDir)
+                                selectionMode = false
+                                selectedFiles.clear()
+                            }
                         }) {
                             Icon(Icons.Default.Delete, contentDescription = "Delete selected")
                         }
@@ -216,7 +269,7 @@ fun LocalFilesScreen(viewModel: MainViewModel) {
                     }
                 }, onDeleteClick = if (selectionMode) null else { {
                     try {
-                        com.maxvale.dzvinaplayer.utils.MediaStoreHelper.deleteFile(context, file)
+                        deleteFile(context, file)
                         files = getFiles(context, currentDir)
                     } catch (e: Exception) {
                         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q && e is android.app.RecoverableSecurityException) {
@@ -234,7 +287,7 @@ fun LocalFilesScreen(viewModel: MainViewModel) {
 }
 
 fun getFiles(context: android.content.Context, dir: File): List<File> {
-    return com.maxvale.dzvinaplayer.utils.MediaStoreHelper.getMediaInFolder(context, dir.absolutePath).map { it.toFile() }
+    return getMediaInFolder(context, dir.absolutePath).map { it.toFile() }
 }
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
@@ -367,7 +420,7 @@ fun ListItemRow(title: String, icon: androidx.compose.ui.graphics.vector.ImageVe
 fun FavoritesScreen(viewModel: MainViewModel) {
     val favorites by viewModel.favorites.collectAsState()
     var selectionMode by remember { mutableStateOf(false) }
-    val selectedFavorites = remember { mutableStateListOf<com.maxvale.dzvinaplayer.data.FavoriteLocation>() }
+    val selectedFavorites = remember { mutableStateListOf<FavoriteLocation>() }
 
     androidx.compose.runtime.LaunchedEffect(Unit) {
         viewModel.refreshFavoritesAvailability()
@@ -477,7 +530,7 @@ fun FavoritesScreen(viewModel: MainViewModel) {
 fun RecentScreen(viewModel: MainViewModel) {
     val recents by viewModel.recents.collectAsState()
     var selectionMode by remember { mutableStateOf(false) }
-    val selectedRecents = remember { mutableStateListOf<com.maxvale.dzvinaplayer.data.RecentVideo>() }
+    val selectedRecents = remember { mutableStateListOf<RecentVideo>() }
 
     Scaffold(
         containerColor = PrimaryDarkRed,
@@ -637,13 +690,15 @@ fun FtpServersScreen(viewModel: MainViewModel) {
                 },
                 confirmButton = {
                     androidx.compose.material3.TextButton(onClick = {
-                        viewModel.addFtpServer(com.maxvale.dzvinaplayer.data.FtpServer(
-                            name = name.ifEmpty { host },
-                            host = host,
-                            port = port.toIntOrNull() ?: 21,
-                            user = user,
-                            pass = pass
-                        ))
+                        viewModel.addFtpServer(
+                            FtpServer(
+                                name = name.ifEmpty { host },
+                                host = host,
+                                port = port.toIntOrNull() ?: 21,
+                                user = user,
+                                pass = pass
+                            )
+                        )
                         showAddDialog = false
                     }) {
                         Text("Save")
