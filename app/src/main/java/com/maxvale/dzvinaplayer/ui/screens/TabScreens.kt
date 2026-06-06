@@ -1,6 +1,13 @@
 package com.maxvale.dzvinaplayer.ui.screens
 
 import android.os.Environment
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import android.os.Build
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -96,23 +103,54 @@ fun LocalFilesScreen(viewModel: MainViewModel) {
     var selectionMode by remember { mutableStateOf(false) }
     val selectedFiles = remember { mutableStateListOf<File>() }
 
-    var fileToDelete by remember { mutableStateOf<File?>(null) }
-    val deleteLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult()
-    ) { result ->
-        if (result.resultCode == android.app.Activity.RESULT_OK) {
-            if (selectionMode && selectedFiles.isNotEmpty()) {
-                files = getFiles(context, currentDir)
-                selectionMode = false
-                selectedFiles.clear()
-            } else if (fileToDelete != null) {
-                try {
-                    deleteFile(context, fileToDelete!!)
-                } catch (e: Exception) {}
-                files = getFiles(context, currentDir)
-                fileToDelete = null
-            } else {
-                files = getFiles(context, currentDir)
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var showPermissionDialog by remember { mutableStateOf(false) }
+
+    val performDelete = { targets: List<File> ->
+        val requiresAllFilesAccess = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()
+        if (requiresAllFilesAccess) {
+            showPermissionDialog = true
+        } else {
+            scope.launch(Dispatchers.IO) {
+                // Delete actual files and folders recursively
+                targets.forEach { target ->
+                    try {
+                        if (target.isDirectory) {
+                            target.deleteRecursively()
+                        } else {
+                            target.delete()
+                        }
+                    } catch (e: Exception) {}
+                }
+
+                // Also delete their references in the MediaStore database
+                val allFiles = mutableListOf<File>()
+                targets.forEach { target ->
+                    if (target.isDirectory) {
+                        target.walkTopDown().forEach { file ->
+                            if (file.isFile) allFiles.add(file)
+                        }
+                    } else {
+                        allFiles.add(target)
+                    }
+                }
+                
+                allFiles.forEach { file ->
+                    try {
+                        val uri = com.maxvale.dzvinaplayer.utils.MediaStoreHelper.getUriForFile(context, file)
+                        if (uri != null) {
+                            context.contentResolver.delete(uri, null, null)
+                        }
+                    } catch (e: Exception) {}
+                }
+
+                withContext(Dispatchers.Main) {
+                    files = getFiles(context, currentDir)
+                    if (selectionMode) {
+                        selectionMode = false
+                        selectedFiles.clear()
+                    }
+                }
             }
         }
     }
@@ -149,62 +187,7 @@ fun LocalFilesScreen(viewModel: MainViewModel) {
                 actions = {
                     if (selectionMode) {
                         IconButton(onClick = {
-                            val folders = selectedFiles.filter { it.isDirectory }
-                            val individualFiles = selectedFiles.filter { !it.isDirectory }
-
-                            // Delete folders first (usually works via File API if within app's reach or if simple)
-                            folders.forEach { folder ->
-                                try {
-                                    deleteFile(context, folder)
-                                } catch (e: Exception) {}
-                            }
-
-                            if (individualFiles.isNotEmpty() && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                                val uris = individualFiles.mapNotNull { file ->
-                                    val contentUri = when (file.extension.lowercase()) {
-                                        "mp3", "flac", "wav" -> android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-                                        else -> android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-                                    }
-                                    val projection = arrayOf(android.provider.MediaStore.MediaColumns._ID)
-                                    val selection = "${android.provider.MediaStore.MediaColumns.DATA} = ?"
-                                    val selectionArgs = arrayOf(file.absolutePath)
-                                    context.contentResolver.query(contentUri, projection, selection, selectionArgs, null)?.use { cursor ->
-                                        if (cursor.moveToFirst()) {
-                                            val id = cursor.getLong(cursor.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns._ID))
-                                            android.content.ContentUris.withAppendedId(contentUri, id)
-                                        } else null
-                                    }
-                                }
-                                if (uris.isNotEmpty()) {
-                                    val pendingIntent = android.provider.MediaStore.createDeleteRequest(context.contentResolver, uris)
-                                    deleteLauncher.launch(androidx.activity.result.IntentSenderRequest.Builder(pendingIntent.intentSender).build())
-                                } else {
-                                    // Fallback for files not in MediaStore
-                                    individualFiles.forEach { file ->
-                                        try {
-                                            deleteFile(context, file)
-                                        } catch (e: Exception) {}
-                                    }
-                                    files = getFiles(context, currentDir)
-                                    selectionMode = false
-                                    selectedFiles.clear()
-                                }
-                            } else {
-                                individualFiles.forEach { file ->
-                                    try {
-                                        deleteFile(context, file)
-                                    } catch (e: Exception) {
-                                        if (e is android.app.RecoverableSecurityException) {
-                                            fileToDelete = file
-                                            val intentSender = e.userAction.actionIntent.intentSender
-                                            deleteLauncher.launch(androidx.activity.result.IntentSenderRequest.Builder(intentSender).build())
-                                        }
-                                    }
-                                }
-                                files = getFiles(context, currentDir)
-                                selectionMode = false
-                                selectedFiles.clear()
-                            }
+                            performDelete(selectedFiles.toList())
                         }) {
                             Icon(Icons.Default.Delete, contentDescription = "Delete selected")
                         }
@@ -268,22 +251,42 @@ fun LocalFilesScreen(viewModel: MainViewModel) {
                         selectedFiles.add(file)
                     }
                 }, onDeleteClick = if (selectionMode) null else { {
-                    try {
-                        deleteFile(context, file)
-                        files = getFiles(context, currentDir)
-                    } catch (e: Exception) {
-                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q && e is android.app.RecoverableSecurityException) {
-                            fileToDelete = file
-                            val intentSender = e.userAction.actionIntent.intentSender
-                            deleteLauncher.launch(androidx.activity.result.IntentSenderRequest.Builder(intentSender).build())
-                        }
-                    }
+                    performDelete(listOf(file))
                 } })
                 HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
             }
+            }
+        }
+
+        if (showPermissionDialog) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { showPermissionDialog = false },
+                title = { Text("Permission Required") },
+                text = { Text("To delete files and folders, DzvinaPlayer requires \"All Files Access\" permission. Please enable it in the system settings.") },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(onClick = {
+                        showPermissionDialog = false
+                        try {
+                            val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                            }
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                            context.startActivity(intent)
+                        }
+                    }) {
+                        Text("Open Settings")
+                    }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(onClick = { showPermissionDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
         }
     }
-}
 }
 
 fun getFiles(context: android.content.Context, dir: File): List<File> {
@@ -342,7 +345,11 @@ fun FileListItem(
             if (!isParent && onDeleteClick != null) {
                 Box {
                     IconButton(onClick = { expanded = true }) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = "Options")
+                        Icon(
+                            imageVector = Icons.Filled.MoreVert,
+                            contentDescription = "Options",
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
                     }
                     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                         DropdownMenuItem(text = { Text("Delete") }, onClick = { expanded = false; onDeleteClick() })
@@ -405,7 +412,11 @@ fun ListItemRow(title: String, icon: androidx.compose.ui.graphics.vector.ImageVe
         if (onDeleteClick != null) {
             Box {
                 IconButton(onClick = { expanded = true }) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = "Options")
+                    Icon(
+                        imageVector = Icons.Filled.MoreVert,
+                        contentDescription = "Options",
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
                 }
                 DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                     DropdownMenuItem(text = { Text("Delete") }, onClick = { expanded = false; onDeleteClick() })
@@ -663,6 +674,8 @@ fun FtpServersScreen(viewModel: MainViewModel) {
                 items(servers) { server ->
                     ListItemRow(title = server.name, icon = Icons.Filled.Cloud, onClick = {
                         viewModel.connectToFtp(server)
+                    }, onDeleteClick = {
+                        viewModel.removeFtpServer(server)
                     })
                     HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
                 }
