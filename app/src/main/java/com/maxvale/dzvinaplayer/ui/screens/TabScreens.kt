@@ -45,6 +45,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -121,6 +122,25 @@ fun LocalFilesScreen(viewModel: MainViewModel) {
                             target.delete()
                         }
                     } catch (e: Exception) {}
+                }
+
+                // Clean up favorites and recents database
+                viewModel.favorites.value.forEach { favorite ->
+                    val isDeleted = targets.any { target ->
+                        favorite.path == target.absolutePath || favorite.path.startsWith(target.absolutePath + "/")
+                    }
+                    if (isDeleted) {
+                        viewModel.removeFavorite(favorite)
+                    }
+                }
+                
+                viewModel.recents.value.forEach { recent ->
+                    val isDeleted = targets.any { target ->
+                        recent.path == target.absolutePath || recent.path.startsWith(target.absolutePath + "/")
+                    }
+                    if (isDeleted) {
+                        viewModel.removeRecent(recent)
+                    }
                 }
 
                 // Also delete their references in the MediaStore database
@@ -203,7 +223,10 @@ fun LocalFilesScreen(viewModel: MainViewModel) {
             )
         }
     ) { innerPadding ->
-        Box(Modifier.fillMaxSize().padding(innerPadding).background(MaterialTheme.colorScheme.background)) {
+        Surface(
+            modifier = Modifier.fillMaxSize().padding(innerPadding),
+            color = MaterialTheme.colorScheme.background
+        ) {
             val favorites by viewModel.favorites.collectAsState()
             LazyColumn(
                 modifier = Modifier
@@ -376,7 +399,10 @@ fun SourcesHomeScreen(viewModel: MainViewModel) {
             )
         }
     ) { innerPadding ->
-        Box(Modifier.fillMaxSize().padding(innerPadding).background(MaterialTheme.colorScheme.background)) {
+        Surface(
+            modifier = Modifier.fillMaxSize().padding(innerPadding),
+            color = MaterialTheme.colorScheme.background
+        ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -469,7 +495,10 @@ fun FavoritesScreen(viewModel: MainViewModel) {
             )
         }
     ) { innerPadding ->
-        Box(Modifier.fillMaxSize().padding(innerPadding).background(MaterialTheme.colorScheme.background)) {
+        Surface(
+            modifier = Modifier.fillMaxSize().padding(innerPadding),
+            color = MaterialTheme.colorScheme.background
+        ) {
         if (favorites.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("No favorite locations yet.", style = MaterialTheme.typography.bodyLarge)
@@ -521,8 +550,7 @@ fun FavoritesScreen(viewModel: MainViewModel) {
                         Icon(if (File(favorite.path).isDirectory) Icons.Filled.Folder else Icons.AutoMirrored.Filled.InsertDriveFile, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
                         Spacer(modifier = Modifier.width(16.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(favorite.name, style = MaterialTheme.typography.bodyLarge)
-                            Text(favorite.path, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha=0.6f))
+                            Text(favorite.name.substringAfterLast("/"), style = MaterialTheme.typography.bodyLarge)
                         }
                         if (isSelected) {
                             Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
@@ -575,7 +603,10 @@ fun RecentScreen(viewModel: MainViewModel) {
             )
         }
     ) { innerPadding ->
-        Box(Modifier.fillMaxSize().padding(innerPadding).background(MaterialTheme.colorScheme.background)) {
+        Surface(
+            modifier = Modifier.fillMaxSize().padding(innerPadding),
+            color = MaterialTheme.colorScheme.background
+        ) {
         if (recents.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("No recent videos.", style = MaterialTheme.typography.bodyLarge)
@@ -614,7 +645,7 @@ fun RecentScreen(viewModel: MainViewModel) {
                         Icon(Icons.AutoMirrored.Filled.InsertDriveFile, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
                         Spacer(modifier = Modifier.width(16.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(recent.name, style = MaterialTheme.typography.bodyLarge)
+                            Text(recent.name.substringAfterLast("/"), style = MaterialTheme.typography.bodyLarge)
                             val pos = recent.lastPositionMs / 1000
                             Text("Resumes at ${pos / 60}:${String.format("%02d", pos % 60)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha=0.6f))
                         }
@@ -664,7 +695,10 @@ fun FtpServersScreen(viewModel: MainViewModel) {
             }
         }
     ) { innerPadding ->
-        Box(Modifier.fillMaxSize().padding(innerPadding).background(MaterialTheme.colorScheme.background)) {
+        Surface(
+            modifier = Modifier.fillMaxSize().padding(innerPadding),
+            color = MaterialTheme.colorScheme.background
+        ) {
         if (servers.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("No FTP servers configured", style = MaterialTheme.typography.bodyLarge)
@@ -757,7 +791,10 @@ fun FtpBrowseScreen(viewModel: MainViewModel) {
             )
         }
     ) { innerPadding ->
-        Box(Modifier.fillMaxSize().padding(innerPadding).background(MaterialTheme.colorScheme.background)) {
+        Surface(
+            modifier = Modifier.fillMaxSize().padding(innerPadding),
+            color = MaterialTheme.colorScheme.background
+        ) {
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             items(files) { file ->
                 val isDir = file.isDirectory
@@ -810,7 +847,10 @@ fun AboutScreen(onNavigateBack: () -> Unit) {
             )
         }
     ) { innerPadding ->
-        Box(Modifier.fillMaxSize().padding(innerPadding).background(MaterialTheme.colorScheme.background)) {
+        Surface(
+            modifier = Modifier.fillMaxSize().padding(innerPadding),
+            color = MaterialTheme.colorScheme.background
+        ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()

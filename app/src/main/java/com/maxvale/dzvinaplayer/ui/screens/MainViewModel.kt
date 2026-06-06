@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.File
 import android.os.Environment
@@ -93,12 +94,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun refreshFavoritesAvailability() {
+        val hasAccess = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            android.os.Environment.isExternalStorageManager()
+        } else {
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                getApplication(),
+                android.Manifest.permission.READ_EXTERNAL_STORAGE
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
+
+        if (!hasAccess) return
+
         viewModelScope.launch {
-            val currentFavorites = favorites.value
+            val currentFavorites = favoriteDao.getAllFavorites().first()
             currentFavorites.forEach { favorite ->
-                val file = File(favorite.path)
-                if (!file.exists()) {
-                    favoriteDao.deleteFavorite(favorite)
+                if (!favorite.path.startsWith("ftp://")) {
+                    val file = File(favorite.path)
+                    if (!file.exists()) {
+                        favoriteDao.deleteFavorite(favorite)
+                    }
                 }
             }
         }
