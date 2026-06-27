@@ -1,14 +1,17 @@
 package com.maxvale.dzvinaplayer.ui.screens
 
+import android.app.Activity
 import android.os.Environment
-import android.content.Intent
 import android.net.Uri
-import android.provider.Settings
 import android.os.Build
+import android.provider.MediaStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -67,7 +70,6 @@ import com.maxvale.dzvinaplayer.data.FtpServer
 import com.maxvale.dzvinaplayer.data.RecentVideo
 import com.maxvale.dzvinaplayer.ui.navigation.Screen
 import com.maxvale.dzvinaplayer.ui.theme.PrimaryDarkRed
-import com.maxvale.dzvinaplayer.utils.MediaStoreHelper.deleteFile
 import com.maxvale.dzvinaplayer.utils.MediaStoreHelper.getMediaInFolder
 import java.io.File
 
@@ -105,64 +107,73 @@ fun LocalFilesScreen(viewModel: MainViewModel) {
     val selectedFiles = remember { mutableStateListOf<File>() }
 
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-    var showPermissionDialog by remember { mutableStateOf(false) }
+
+    // Launcher for the system delete-confirmation dialog (API 30+)
+    val deleteRequestLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            // System confirmed deletion – refresh the file list
+            scope.launch(Dispatchers.IO) {
+                withContext(Dispatchers.Main) {
+                    files = getFiles(context, currentDir)
+                    if (selectionMode) {
+                        selectionMode = false
+                        selectedFiles.clear()
+                    }
+                }
+            }
+        }
+    }
 
     val performDelete = { targets: List<File> ->
-        val requiresAllFilesAccess = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()
-        if (requiresAllFilesAccess) {
-            showPermissionDialog = true
-        } else {
-            scope.launch(Dispatchers.IO) {
-                // Delete actual files and folders recursively
-                targets.forEach { target ->
-                    try {
-                        if (target.isDirectory) {
-                            target.deleteRecursively()
-                        } else {
-                            target.delete()
-                        }
-                    } catch (e: Exception) {}
+        scope.launch(Dispatchers.IO) {
+            // Collect all leaf media files from the targets (expand directories)
+            val allMediaFiles = mutableListOf<File>()
+            targets.forEach { target ->
+                if (target.isDirectory) {
+                    target.walkTopDown().filter { it.isFile }.forEach { allMediaFiles.add(it) }
+                } else {
+                    allMediaFiles.add(target)
+                }
+            }
+
+            // Build list of MediaStore URIs for these files
+            val mediaUris = mutableListOf<Uri>()
+            allMediaFiles.forEach { file ->
+                val uri = com.maxvale.dzvinaplayer.utils.MediaStoreHelper.getUriForFile(context, file)
+                if (uri != null) mediaUris.add(uri)
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && mediaUris.isNotEmpty()) {
+                // API 30+: ask the system to show a delete-confirmation dialog.
+                // No MANAGE_EXTERNAL_STORAGE required.
+                val pendingIntent = MediaStore.createDeleteRequest(context.contentResolver, mediaUris)
+                withContext(Dispatchers.Main) {
+                    deleteRequestLauncher.launch(
+                        IntentSenderRequest.Builder(pendingIntent.intentSender).build()
+                    )
+                    // DB cleanup happens here so it is ready when the dialog returns
+                    cleanupDbEntries(viewModel, targets)
+                }
+            } else {
+                // API 29 and below: delete via contentResolver directly (WRITE_EXTERNAL_STORAGE covers this)
+                mediaUris.forEach { uri ->
+                    try { context.contentResolver.delete(uri, null, null) } catch (e: Exception) {}
+                }
+                // For any files not in MediaStore, fall back to direct File.delete()
+                val remainingFiles = allMediaFiles.filter {
+                    com.maxvale.dzvinaplayer.utils.MediaStoreHelper.getUriForFile(context, it) == null
+                }
+                remainingFiles.forEach { file ->
+                    try { file.delete() } catch (e: Exception) {}
+                }
+                // Delete empty directories
+                targets.filter { it.isDirectory }.forEach { dir ->
+                    try { dir.deleteRecursively() } catch (e: Exception) {}
                 }
 
-                // Clean up favorites and recents database
-                viewModel.favorites.value.forEach { favorite ->
-                    val isDeleted = targets.any { target ->
-                        favorite.path == target.absolutePath || favorite.path.startsWith(target.absolutePath + "/")
-                    }
-                    if (isDeleted) {
-                        viewModel.removeFavorite(favorite)
-                    }
-                }
-                
-                viewModel.recents.value.forEach { recent ->
-                    val isDeleted = targets.any { target ->
-                        recent.path == target.absolutePath || recent.path.startsWith(target.absolutePath + "/")
-                    }
-                    if (isDeleted) {
-                        viewModel.removeRecent(recent)
-                    }
-                }
-
-                // Also delete their references in the MediaStore database
-                val allFiles = mutableListOf<File>()
-                targets.forEach { target ->
-                    if (target.isDirectory) {
-                        target.walkTopDown().forEach { file ->
-                            if (file.isFile) allFiles.add(file)
-                        }
-                    } else {
-                        allFiles.add(target)
-                    }
-                }
-                
-                allFiles.forEach { file ->
-                    try {
-                        val uri = com.maxvale.dzvinaplayer.utils.MediaStoreHelper.getUriForFile(context, file)
-                        if (uri != null) {
-                            context.contentResolver.delete(uri, null, null)
-                        }
-                    } catch (e: Exception) {}
-                }
+                cleanupDbEntries(viewModel, targets)
 
                 withContext(Dispatchers.Main) {
                     files = getFiles(context, currentDir)
@@ -281,39 +292,30 @@ fun LocalFilesScreen(viewModel: MainViewModel) {
             }
         }
 
-        if (showPermissionDialog) {
-            androidx.compose.material3.AlertDialog(
-                onDismissRequest = { showPermissionDialog = false },
-                title = { Text("Permission Required") },
-                text = { Text("To delete files and folders, DzvinaPlayer requires \"All Files Access\" permission. Please enable it in the system settings.") },
-                confirmButton = {
-                    androidx.compose.material3.TextButton(onClick = {
-                        showPermissionDialog = false
-                        try {
-                            val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
-                                data = Uri.parse("package:${context.packageName}")
-                            }
-                            context.startActivity(intent)
-                        } catch (e: Exception) {
-                            val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
-                            context.startActivity(intent)
-                        }
-                    }) {
-                        Text("Open Settings")
-                    }
-                },
-                dismissButton = {
-                    androidx.compose.material3.TextButton(onClick = { showPermissionDialog = false }) {
-                        Text("Cancel")
-                    }
-                }
-            )
-        }
     }
 }
 
 fun getFiles(context: android.content.Context, dir: File): List<File> {
     return getMediaInFolder(context, dir.absolutePath).map { it.toFile() }
+}
+
+/** Removes deleted targets from the in-app favorites and recents databases. */
+private fun cleanupDbEntries(
+    viewModel: MainViewModel,
+    targets: List<File>
+) {
+    viewModel.favorites.value.forEach { favorite ->
+        val isDeleted = targets.any { target ->
+            favorite.path == target.absolutePath || favorite.path.startsWith(target.absolutePath + "/")
+        }
+        if (isDeleted) viewModel.removeFavorite(favorite)
+    }
+    viewModel.recents.value.forEach { recent ->
+        val isDeleted = targets.any { target ->
+            recent.path == target.absolutePath || recent.path.startsWith(target.absolutePath + "/")
+        }
+        if (isDeleted) viewModel.removeRecent(recent)
+    }
 }
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
