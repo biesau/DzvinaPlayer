@@ -461,8 +461,11 @@ fun FavoritesScreen(viewModel: MainViewModel) {
     var selectionMode by remember { mutableStateOf(false) }
     val selectedFavorites = remember { mutableStateListOf<FavoriteLocation>() }
 
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        viewModel.refreshFavoritesAvailability()
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
+            viewModel.refreshFavoritesAvailability()
+        }
     }
 
     Scaffold(

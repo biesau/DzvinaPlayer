@@ -94,17 +94,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun refreshFavoritesAvailability() {
-        val hasAccess = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            android.os.Environment.isExternalStorageManager()
-        } else {
-            androidx.core.content.ContextCompat.checkSelfPermission(
-                getApplication(),
-                android.Manifest.permission.READ_EXTERNAL_STORAGE
-            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-        }
-
-        if (!hasAccess) return
-
         viewModelScope.launch {
             val currentFavorites = favoriteDao.getAllFavorites().first()
             currentFavorites.forEach { favorite ->

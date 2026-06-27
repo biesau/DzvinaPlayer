@@ -14,7 +14,7 @@ android {
         applicationId = "com.maxvale.dzvinaplayer"
         minSdk = 30
         targetSdk = 37
-        versionCode = 4
+        versionCode = 5
         versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
